@@ -8,7 +8,10 @@ mxctl status                  # Gerät, Batterie, DPI, Scroll-Modus
 mxctl battery                 # Ladezustand
 mxctl dpi get | set <wert>
 mxctl scroll get | set <ratchet|freespin|auto> [--threshold N]
-mxctl buttons list | set <controlIdHex> <taskIdHex>
+mxctl buttons list
+mxctl buttons divert <controlIdHex> <on|off>
+mxctl buttons reset <controlIdHex>
+mxctl buttons watch [sekunden]
 ```
 
 ## Voraussetzung: Eingabeüberwachung
@@ -42,16 +45,19 @@ Git-Historie von `Sources/hidraw`):
    kommt nie eine Antwort. Funktionierend ist ausschließlich **`IOHIDDeviceSetValue`** auf
    dem 19-Byte-Output-Array-Element der Vendor-Collection.
 
-4. **Antworten kommen nicht per Callback.**
-   Weder `IOHIDDeviceRegisterInputReportCallback` noch `RegisterInputValueCallback` feuern
-   für diese Collection. Die Antwort muss per `IOHIDDeviceGetValue` vom Input-Array-Element
-   **gepollt** werden.
+4. **Empfangen läuft über `IOHIDDeviceRegisterInputReportCallback`.**
+   Der Callback liefert den Report inklusive führender Report-ID, der HID++-Body beginnt
+   also bei Index 1. (Ein früherer Zwischenstand hielt den Callback für funktionslos — das
+   war ein Trugschluss: getestet wurde er zu einem Zeitpunkt, als noch `SetReport` zum
+   Senden verwendet wurde und deshalb überhaupt keine Antwort eintraf.)
 
-5. **Das Input-Element ist ein Cache, kein Stream.**
-   Es hält immer den zuletzt empfangenen Report. Eine Antwort, die byte-identisch mit dem
-   Cache-Inhalt ist (z. B. dieselbe Anfrage zweimal hintereinander), ist damit nicht von
-   "noch keine Antwort" unterscheidbar. `HIDPPTransport.request` wählt deshalb die
-   Software-ID gezielt so, dass sie sich von der im Cache stehenden unterscheidet.
+5. **Das Input-*Element* taugt nicht als Empfangsquelle.**
+   Es cacht nur den zuletzt empfangenen Report. Viele SET-Aufrufe lösen unmittelbar nach
+   ihrer Antwort eine Notification aus — gemessen ~15 ms später —, die den Cache
+   überschreibt. Ein Polling-Intervall von 20 ms verliert die Antwort dadurch
+   reproduzierbar, obwohl der Schreibvorgang selbst erfolgreich war. Zusätzlich wäre eine
+   Antwort, die byte-identisch mit dem Cache-Inhalt ist, nicht von "noch keine Antwort"
+   unterscheidbar.
 
 6. **CoreBluetooth ist kein Weg.** Sobald macOS die Maus als HID-Eingabegerät übernimmt,
    taucht sie weder in `retrieveConnectedPeripherals` auf noch advertised sie noch — ein
@@ -60,6 +66,17 @@ Git-Historie von `Sources/hidraw`):
 7. **Der USB-C-Anschluss der MX Master 3S ist reiner Ladeanschluss.** Angeschlossen
    erscheint kein USB-Gerät in der IORegistry; der Kabelweg steht als Transport nicht
    zur Verfügung.
+
+8. **Kein On-Device-Remapping.** `SetCidReporting` (Feature `0x1B04` v5) hat das Layout
+   `cid(2), flags(1), reserved(1), remap(2)`; das reservierte Byte muss 0 sein, sonst
+   antwortet das Gerät mit `INVALID_ARGUMENT`. Die Flag-Bits greifen zuverlässig
+   (divert `0x01`/valid `0x02`, persist `0x04`/`0x08`, rawXY `0x10`/`0x20`), das Remap-Feld
+   wird jedoch nie übernommen — `GetCidReporting` liefert danach unverändert `0x0000`.
+   Getestet wurden beide Byte-Layouts und alle Flag-Bits. Tastenbelegung wie in Logi Options+
+   läuft folglich nicht auf dem Gerät, sondern über Divert plus Host-Software.
+
+9. **Diverted Tasten melden Press und Release getrennt.** Notification-Format:
+   `FF <featureIndex> 00 <cid_hi> <cid_lo>` beim Druck, mit CID `0x0000` beim Loslassen.
 
 ## Aufbau
 
@@ -74,10 +91,19 @@ Git-Historie von `Sources/hidraw`):
 
 ## Stand
 
-Verifiziert gegen echte Hardware: Feature-Discovery, Batterie (85 %), DPI lesen **und
-schreiben** (1000 → 1600 → 1000), SmartShift-Status, Enumeration der 8 programmierbaren
-Tasten.
+Alle Befehle sind gegen echte Hardware verifiziert:
 
-Noch nicht gegen Hardware verifiziert: `buttons set` (On-Device-Remap) und
-`scroll set`. Software-interpretierte Gesten (wie der Gesten-Button in Logitech Options)
-bräuchten zusätzlich einen dauerhaft laufenden Daemon und sind nicht Teil dieses Tools.
+| Bereich | Verifikation |
+|---|---|
+| Feature-Discovery | Indizes für `0x1004`, `0x2201`, `0x2110`, `0x1B04` aufgelöst |
+| Batterie | 85 % gelesen, Statusbyte plausibel (entlädt) |
+| DPI | gelesen und geschrieben: 1000 → 1600 → 1000 |
+| SmartShift | gelesen und geschrieben: ratchet → freespin → ratchet |
+| Tasten-Enumeration | 8 Controls inkl. Gruppen und Gruppenmasken |
+| Divert | Umleitung gesetzt, Press/Release-Notifications empfangen, zurückgesetzt |
+
+Nicht möglich: On-Device-Remapping (siehe Punkt 8 oben) — die Hardware unterstützt es nicht.
+
+Nicht Teil dieses Tools: ein Daemon, der umgeleitete Tastendrücke in macOS-Aktionen
+übersetzt. `mxctl buttons watch` zeigt, dass die dafür nötigen Ereignisse ankommen; die
+Zuordnung zu Aktionen wäre der nächste Ausbauschritt.

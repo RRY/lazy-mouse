@@ -15,35 +15,48 @@ import IOKit.hid
 /// * Es existiert nur Report-ID 0x11 (Long, 19 Byte Body), kein klassisches 0x10 (Short).
 ///
 /// * `IOHIDDeviceSetReport` liefert zwar kIOReturnSuccess, sendet aber faktisch nichts.
-///   Nur `IOHIDDeviceSetValue` auf dem 19-Byte-Output-Array-Element kommt beim Gerät an.
+///   Gesendet wird ausschließlich über `IOHIDDeviceSetValue` auf dem 19-Byte-Output-
+///   Array-Element der Vendor-Collection.
 ///
-/// * Antworten werden nicht über Input-Callbacks zugestellt; sie müssen per
-///   `IOHIDDeviceGetValue` vom Input-Array-Element gepollt werden. Dieses Element ist ein
-///   Cache des zuletzt empfangenen Reports, kein Stream — siehe `request(...)`.
+/// * Empfangen läuft über `IOHIDDeviceRegisterInputReportCallback`. Der Callback liefert
+///   den Report inklusive führender Report-ID, der HID++-Body beginnt also bei Index 1.
+///   Das Input-*Element* taugt nicht als Quelle: es cacht nur den zuletzt empfangenen
+///   Report, und viele SET-Aufrufe lösen unmittelbar nach der Antwort eine Notification
+///   aus, die den Cache innerhalb weniger Millisekunden überschreibt — die Antwort ginge
+///   dabei verloren.
 ///
 /// Da das Matching die Vendor-ID ohne Usage-Page-Einschränkung verwendet, verlangt macOS
 /// die Berechtigung "Eingabeüberwachung" (Input Monitoring) für die aufrufende Anwendung.
 public final class HIDPPTransport {
 
     public static let vendorIDLogitech = 0x046D
+    /// Report-ID aller HID++-Nachrichten auf diesem Transportweg.
+    static let reportID: UInt8 = 0x11
     /// Body-Länge eines HID++ Long-Reports ohne Report-ID.
     static let reportBodyLength = 19
 
     private var manager: IOHIDManager?
     private var device: IOHIDDevice?
     private var outputElement: IOHIDElement?
-    private var inputElement: IOHIDElement?
+
+    private let inputBufferSize = 64
+    private let inputBuffer: UnsafeMutablePointer<UInt8>
+    /// Seit dem letzten Request empfangene HID++-Bodies (ohne Report-ID).
+    private var receivedBodies: [[UInt8]] = []
 
     public private(set) var productName: String = "unbekannt"
     /// Usage Page der gefundenen HID++ Vendor-Collection (z. B. 0xFF43 bei BLE).
     public private(set) var vendorUsagePage: UInt32 = 0
 
-    public init() {}
+    public init() {
+        inputBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: inputBufferSize)
+    }
 
     deinit {
         if let device = device {
             IOHIDDeviceClose(device, IOOptionBits(kIOHIDOptionsTypeNone))
         }
+        inputBuffer.deallocate()
     }
 
     @discardableResult
@@ -75,19 +88,14 @@ public final class HIDPPTransport {
             guard let elements = IOHIDDeviceCopyMatchingElements(candidate, nil, IOOptionBits(kIOHIDOptionsTypeNone)) as? [IOHIDElement] else {
                 continue
             }
-            // Das HID++ Array-Element: Vendor-Usage-Page, 19 Bytes à 8 Bit.
-            func arrayElement(_ type: IOHIDElementType) -> IOHIDElement? {
-                elements.first { el in
-                    IOHIDElementGetUsagePage(el) >= 0xFF00
-                        && IOHIDElementGetType(el) == type
-                        && IOHIDElementGetReportCount(el) == UInt32(HIDPPTransport.reportBodyLength)
-                        && IOHIDElementGetReportSize(el) == 8
-                }
+            // Das HID++ Output-Array-Element: Vendor-Usage-Page, 19 Bytes à 8 Bit.
+            let out = elements.first { el in
+                IOHIDElementGetUsagePage(el) >= 0xFF00
+                    && IOHIDElementGetType(el) == kIOHIDElementTypeOutput
+                    && IOHIDElementGetReportCount(el) == UInt32(HIDPPTransport.reportBodyLength)
+                    && IOHIDElementGetReportSize(el) == 8
             }
-            guard let out = arrayElement(kIOHIDElementTypeOutput),
-                  let inp = arrayElement(kIOHIDElementTypeInput_Button) else {
-                continue
-            }
+            guard let outputElement = out else { continue }
 
             IOHIDDeviceScheduleWithRunLoop(candidate, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
             let openDeviceResult = IOHIDDeviceOpen(candidate, IOOptionBits(kIOHIDOptionsTypeNone))
@@ -95,33 +103,46 @@ public final class HIDPPTransport {
                 throw HIDPPError.deviceOpenFailed(openDeviceResult)
             }
 
+            IOHIDDeviceRegisterInputReportCallback(
+                candidate,
+                inputBuffer,
+                inputBufferSize,
+                { context, _, _, _, reportID, report, reportLength in
+                    guard let context = context, UInt8(truncatingIfNeeded: reportID) == HIDPPTransport.reportID else { return }
+                    let transport = Unmanaged<HIDPPTransport>.fromOpaque(context).takeUnretainedValue()
+                    // Der Callback liefert die Report-ID als erstes Byte mit.
+                    let raw = Array(UnsafeBufferPointer(start: report, count: reportLength))
+                    guard raw.count > 1 else { return }
+                    transport.receivedBodies.append(Array(raw.dropFirst()))
+                },
+                Unmanaged.passUnretained(self).toOpaque()
+            )
+
             self.manager = mgr
             self.device = candidate
-            self.outputElement = out
-            self.inputElement = inp
+            self.outputElement = outputElement
             self.productName = name(of: candidate)
-            self.vendorUsagePage = IOHIDElementGetUsagePage(out)
+            self.vendorUsagePage = IOHIDElementGetUsagePage(outputElement)
             return productName
         }
 
         throw HIDPPError.deviceNotFound
     }
 
-    private func readInputElement() -> [UInt8] {
-        guard let device = device, let inputElement = inputElement else { return [] }
-        let valuePtr = UnsafeMutablePointer<Unmanaged<IOHIDValue>>.allocate(capacity: 1)
-        defer { valuePtr.deallocate() }
-        guard IOHIDDeviceGetValue(device, inputElement, valuePtr) == kIOReturnSuccess else { return [] }
-        let value = valuePtr.pointee.takeUnretainedValue()
-        return Array(UnsafeBufferPointer(start: IOHIDValueGetBytePtr(value), count: IOHIDValueGetLength(value)))
+    /// Prüft, ob ein empfangener Body die Antwort auf einen Request mit dieser Software-ID ist.
+    ///
+    /// Bei Fehlerantworten (`body[1] == 0xFF`) steht das Funktions-/SwID-Byte an Position 3
+    /// statt 2, weil sich die ursprüngliche Feature-Adresse dazwischenschiebt.
+    private static func matches(body: [UInt8], swID: UInt8) -> Bool {
+        guard body.count >= 4 else { return false }
+        let funcSw = body[1] == 0xFF ? body[3] : body[2]
+        return (funcSw & 0x0F) == swID
     }
 
     /// Sendet einen HID++ Request und wartet auf die zugehörige Antwort.
     ///
-    /// Das Input-Element ist ein Cache des zuletzt empfangenen Reports, kein Stream: eine
-    /// Antwort, die byte-identisch mit dem Cache-Inhalt ist, wäre nicht von "noch keine
-    /// Antwort" unterscheidbar. Deshalb wird die Software-ID (unteres Nibble von Byte 2)
-    /// bei Bedarf so verschoben, dass sie sich von der im Cache stehenden unterscheidet.
+    /// Notifications des Geräts (Software-ID 0) werden dabei übergangen; sie treffen bei
+    /// SET-Aufrufen regelmäßig kurz nach der eigentlichen Antwort ein.
     public func request(
         deviceIndex: UInt8,
         featureIndex: UInt8,
@@ -134,11 +155,8 @@ public final class HIDPPTransport {
             throw HIDPPError.notConnected
         }
 
-        let cached = readInputElement()
-        var effectiveSwID = (swID & 0x0F) == 0 ? 1 : (swID & 0x0F)
-        if cached.count >= 3, (cached[2] & 0x0F) == effectiveSwID {
-            effectiveSwID = effectiveSwID == 0x0F ? 1 : effectiveSwID + 1
-        }
+        let effectiveSwID = (swID & 0x0F) == 0 ? 1 : (swID & 0x0F)
+        receivedBodies.removeAll()
 
         var body = [UInt8](repeating: 0, count: HIDPPTransport.reportBodyLength)
         body[0] = deviceIndex
@@ -160,13 +178,30 @@ public final class HIDPPTransport {
 
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            CFRunLoopRunInMode(.defaultMode, 0.02, true)
-            let current = readInputElement()
-            if current.count >= 3, current != cached, (current[2] & 0x0F) == effectiveSwID {
-                return try HIDPPResponse(body: current)
+            CFRunLoopRunInMode(.defaultMode, 0.01, true)
+            if let match = receivedBodies.first(where: { HIDPPTransport.matches(body: $0, swID: effectiveSwID) }) {
+                return try HIDPPResponse(body: match)
             }
         }
         throw HIDPPError.timeout
+    }
+
+    /// Lauscht auf Notifications des Geräts (Software-ID 0) — etwa Tastendrücke einer
+    /// per `divert` umgeleiteten Taste. Blockiert bis zum Ablauf von `duration`.
+    public func listen(duration: TimeInterval, onNotification: ([UInt8]) -> Void) {
+        receivedBodies.removeAll()
+        var delivered = 0
+        let deadline = Date().addingTimeInterval(duration)
+        while Date() < deadline {
+            CFRunLoopRunInMode(.defaultMode, 0.05, true)
+            while delivered < receivedBodies.count {
+                let body = receivedBodies[delivered]
+                delivered += 1
+                if body.count >= 3, (body[2] & 0x0F) == 0 {
+                    onNotification(body)
+                }
+            }
+        }
     }
 }
 

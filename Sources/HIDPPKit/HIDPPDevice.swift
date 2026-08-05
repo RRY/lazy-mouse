@@ -63,4 +63,9 @@ public final class HIDPPDevice {
         let index = try featureIndex(for: featureID)
         return try call(featureIndex: index, function: function, params: params, timeout: timeout)
     }
+
+    /// Lauscht auf Notifications des Geräts, etwa Tastendrücke umgeleiteter Tasten.
+    public func listen(duration: TimeInterval, onNotification: ([UInt8]) -> Void) {
+        transport.listen(duration: duration, onNotification: onNotification)
+    }
 }

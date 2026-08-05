@@ -48,14 +48,69 @@ public struct SpecialButtonsFeature {
         return controls
     }
 
-    /// Function 0x03: SetCidReporting — remapped eine Control-ID auf eine andere Task-ID,
-    /// rein on-device (kein Divert-Flag gesetzt, daher ohne laufenden Host-Prozess wirksam).
-    public func remap(controlID: UInt16, toTaskID taskID: UInt16) throws {
-        let cidHi = UInt8(controlID >> 8)
-        let cidLo = UInt8(controlID & 0xFF)
-        let flags: UInt8 = 0x00
-        let tidHi = UInt8(taskID >> 8)
-        let tidLo = UInt8(taskID & 0xFF)
-        try device.call(feature: SpecialButtonsFeature.featureID, function: 0x03, params: [cidHi, cidLo, flags, tidHi, tidLo])
+    /// Aktuelle Zuordnung einer Taste — im Gegensatz zu `Control` (statische Geräteinfo)
+    /// spiegelt das den tatsächlich gesetzten Remap-Zustand wider.
+    public struct Reporting {
+        public let controlID: UInt16
+        public let flags: UInt8
+        /// Aktuell zugeordnete Task-ID (entspricht der nativen, solange nichts umgemappt ist).
+        public let remappedTaskID: UInt16
+    }
+
+    /// Function 0x02: GetCidReporting — liest die aktuelle Zuordnung einer Taste.
+    public func reporting(controlID: UInt16) throws -> Reporting {
+        let response = try device.call(
+            feature: SpecialButtonsFeature.featureID,
+            function: 0x02,
+            params: [UInt8(controlID >> 8), UInt8(controlID & 0xFF)]
+        )
+        guard response.params.count >= 5 else { throw HIDPPError.malformedResponse }
+        let cid = (UInt16(response.params[0]) << 8) | UInt16(response.params[1])
+        let remapped = (UInt16(response.params[3]) << 8) | UInt16(response.params[4])
+        return Reporting(controlID: cid, flags: response.params[2], remappedTaskID: remapped)
+    }
+
+    /// Flag-Bits in `SetCidReporting`/`GetCidReporting`. Jede Einstellung hat ein Wert-Bit
+    /// und ein zugehöriges "valid"-Bit; nur wenn letzteres gesetzt ist, übernimmt das Gerät
+    /// den Wert. Empirisch an der MX Master 3S bestätigt.
+    private enum Flag {
+        static let divert: UInt8 = 0x01
+        static let divertValid: UInt8 = 0x02
+        static let persist: UInt8 = 0x04
+        static let persistValid: UInt8 = 0x08
+        static let rawXY: UInt8 = 0x10
+        static let rawXYValid: UInt8 = 0x20
+    }
+
+    /// Function 0x03: SetCidReporting.
+    ///
+    /// Parameter-Layout (Feature-Version 5): `cid(2), flags(1), reserved(1), remap(2)`.
+    /// Das reservierte Byte muss 0 sein — jeder andere Wert quittiert das Gerät mit
+    /// INVALID_ARGUMENT.
+    ///
+    /// **Kein On-Device-Remapping:** Das Remap-Feld wird von der MX Master 3S zwar
+    /// entgegengenommen, aber nie übernommen — `GetCidReporting` liefert danach unverändert
+    /// 0x0000. Getestet wurden alle Flag-Bits sowie beide Byte-Layouts. Tastenbelegung wie
+    /// in Logi Options+ läuft deshalb nicht auf dem Gerät, sondern über `divert`: die Taste
+    /// meldet ihren Druck dann als HID++-Notification an den Host, der die gewünschte Aktion
+    /// selbst ausführt (setzt einen dauerhaft laufenden Prozess voraus).
+    private func setReporting(controlID: UInt16, flags: UInt8) throws {
+        try device.call(
+            feature: SpecialButtonsFeature.featureID,
+            function: 0x03,
+            params: [UInt8(controlID >> 8), UInt8(controlID & 0xFF), flags, 0x00, 0x00, 0x00]
+        )
+    }
+
+    /// Leitet die Tastendrücke einer Taste als HID++-Notification an den Host um, statt die
+    /// native Aktion auszulösen. Ohne einen Prozess, der diese Notifications verarbeitet,
+    /// ist die Taste damit faktisch wirkungslos.
+    public func setDivert(controlID: UInt16, enabled: Bool) throws {
+        try setReporting(controlID: controlID, flags: Flag.divertValid | (enabled ? Flag.divert : 0))
+    }
+
+    /// Setzt alle Reporting-Flags einer Taste auf den Auslieferungszustand zurück.
+    public func resetReporting(controlID: UInt16) throws {
+        try setReporting(controlID: controlID, flags: Flag.divertValid | Flag.persistValid | Flag.rawXYValid)
     }
 }

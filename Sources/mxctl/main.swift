@@ -30,7 +30,13 @@ func printUsage() {
       mxctl scroll get
       mxctl scroll set <ratchet|freespin|auto> [--threshold N]
       mxctl buttons list
-      mxctl buttons set <controlIdHex> <taskIdHex>
+      mxctl buttons divert <controlIdHex> <on|off>
+      mxctl buttons reset <controlIdHex>
+      mxctl buttons watch [sekunden]
+
+    Hinweis: Die MX Master 3S kann Tasten nicht geräteseitig umbelegen. Eine umgeleitete
+    ("diverted") Taste löst ihre native Aktion nicht mehr aus, sondern meldet den Druck an
+    den Host — die eigentliche Aktion müsste ein dauerhaft laufender Prozess ausführen.
     """)
 }
 
@@ -138,25 +144,59 @@ case "buttons":
     case "list":
         do {
             let controls = try buttons.listControls()
+            let hex = { (v: UInt16) in String(format: "0x%04X", v) }
             for c in controls {
-                let hex = { (v: UInt16) in String(format: "0x%04X", v) }
-                print("CID \(hex(c.controlID))  TID \(hex(c.taskID))  flags=0x\(String(c.flags, radix: 16))  group=\(c.group)")
+                let current = try? buttons.reporting(controlID: c.controlID)
+                // Aktuelle Zuordnung nur ausweisen, wenn sie von der nativen abweicht.
+                let remapNote: String
+                if let current = current, current.remappedTaskID != 0, current.remappedTaskID != c.taskID {
+                    remapNote = "  -> aktuell \(hex(current.remappedTaskID))"
+                } else {
+                    remapNote = ""
+                }
+                print("CID \(hex(c.controlID))  TID \(hex(c.taskID))  flags=0x\(String(c.flags, radix: 16))  group=\(c.group)\(remapNote)")
             }
         } catch {
             fail("Tasten konnten nicht gelesen werden: \(error)")
         }
-    case "set":
+    case "divert":
         guard args.count >= 4,
               let cid = UInt16(args[2].replacingOccurrences(of: "0x", with: ""), radix: 16),
-              let tid = UInt16(args[3].replacingOccurrences(of: "0x", with: ""), radix: 16) else {
-            fail("Nutzung: mxctl buttons set <controlIdHex> <taskIdHex>")
+              ["on", "off"].contains(args[3]) else {
+            fail("Nutzung: mxctl buttons divert <controlIdHex> <on|off>")
         }
         do {
-            try buttons.remap(controlID: cid, toTaskID: tid)
-            print("Control \(args[2]) auf Task \(args[3]) umgemappt.")
+            try buttons.setDivert(controlID: cid, enabled: args[3] == "on")
+            print("Control \(args[2]): Umleitung \(args[3] == "on" ? "aktiviert" : "deaktiviert").")
         } catch {
-            fail("Remap fehlgeschlagen: \(error)")
+            fail("Umleitung fehlgeschlagen: \(error)")
         }
+    case "reset":
+        guard args.count >= 3,
+              let cid = UInt16(args[2].replacingOccurrences(of: "0x", with: ""), radix: 16) else {
+            fail("Nutzung: mxctl buttons reset <controlIdHex>")
+        }
+        do {
+            try buttons.resetReporting(controlID: cid)
+            print("Control \(args[2]) auf Auslieferungszustand zurückgesetzt.")
+        } catch {
+            fail("Zurücksetzen fehlgeschlagen: \(error)")
+        }
+    case "watch":
+        let seconds = args.count >= 3 ? (Double(args[2]) ?? 10) : 10
+        // Tastendrücke kommen als Notification des Buttons-Features; alles andere bleibt roh.
+        let buttonsIndex = try? device.featureIndex(for: SpecialButtonsFeature.featureID)
+        print("Lausche \(Int(seconds))s auf Notifications … (umgeleitete Tasten drücken)")
+        device.listen(duration: seconds) { body in
+            if let buttonsIndex = buttonsIndex, body.count >= 5, body[1] == buttonsIndex {
+                let cid = (UInt16(body[3]) << 8) | UInt16(body[4])
+                // Eine Meldung mit CID 0 signalisiert das Loslassen der zuvor gemeldeten Taste.
+                print(cid == 0 ? "  losgelassen" : String(format: "  gedrückt  CID 0x%04X", cid))
+            } else {
+                print("  Notification: \(body.map { String(format: "%02X", $0) }.joined(separator: " "))")
+            }
+        }
+        print("Fertig.")
     default:
         printUsage(); exit(1)
     }
