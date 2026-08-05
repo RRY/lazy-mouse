@@ -1,7 +1,30 @@
-# mxctl — HID++ Konfigurator für die Logitech MX Master 3S auf macOS
+# HID++ Konfigurator für die Logitech MX Master 3S auf macOS
 
-Schlankes, natives CLI-Tool zum Konfigurieren einer MX Master 3S **über Bluetooth LE**,
-ohne Logitech Options+. Reiner Userspace, kein Kernel-Treiber.
+Konfiguriert eine MX Master 3S **über Bluetooth LE**, ohne Logitech Options+.
+Reiner Userspace, kein Kernel-Treiber. Zwei Oberflächen auf derselben Bibliothek:
+die Menüleisten-App `MX Menu` und das CLI `mxctl`.
+
+## Menüleisten-App
+
+```
+./build-app.sh          # baut und installiert nach /Applications
+open "/Applications/MX Menu.app"
+```
+
+Das Symbol zeigt den Batteriestand direkt in der Menüleiste; das Menü bietet DPI-Stufen,
+den Scrollrad-Modus und den Schalter für die DPI-Taste. Das Einstellungsfenster (⌘,)
+erlaubt zusätzlich die Wahl der Taste und der DPI-Stufen.
+
+Die App installiert bewusst nach `/Applications`: macOS bindet die Freigabe der
+Eingabeüberwachung an Pfad und Signatur, ein wechselnder Pfad im Projektordner würde sie
+bei jedem Neubau ungültig machen. Nach dem ersten Start muss die Berechtigung erteilt und
+die App neu gestartet werden — bei fehlender Freigabe zeigt das Symbol ein Warndreieck und
+das Menü einen Direktlink in die Systemeinstellungen.
+
+Weil die Signatur ad hoc erzeugt wird, ändert sich der Hash bei jedem Neubau; macOS kann
+die Freigabe dann erneut anfordern.
+
+## CLI
 
 ```
 mxctl status                  # Gerät, Batterie, DPI, Scroll-Modus
@@ -38,9 +61,13 @@ stehen.
 
 Das Tool matcht HID-Geräte nur über die Vendor-ID (siehe unten, warum das nötig ist).
 macOS wertet das als Zugriff auf Eingabegeräte und verlangt die Berechtigung
-**Systemeinstellungen → Datenschutz & Sicherheit → Eingabeüberwachung** für die
-aufrufende Anwendung (Terminal, IDE o. ä.). Ohne sie schlägt `IOHIDManagerOpen`
-mit `kIOReturnNotPermitted` (`0xE00002E2`) fehl.
+**Systemeinstellungen → Datenschutz & Sicherheit → Eingabeüberwachung**. Ohne sie schlägt
+`IOHIDManagerOpen` mit `kIOReturnNotPermitted` (`0xE00002E2`) fehl.
+
+Die Freigabe gilt pro Anwendung: beim CLI für das aufrufende Terminal, bei der App für
+`MX Menu` selbst. Achtung beim Testen — wird das App-Binary direkt aus einem berechtigten
+Terminal gestartet, erbt es dessen Freigabe und funktioniert, während dieselbe App per
+`open` scheitert.
 
 ## Protokoll-Erkenntnisse (Bluetooth LE, macOS 26, MX Master 3S)
 
@@ -105,7 +132,10 @@ Git-Historie von `Sources/hidraw`):
 | `Sources/HIDPPKit/HIDPPTransport.swift` | IOKit-Transport (Punkte 1–5 oben) |
 | `Sources/HIDPPKit/HIDPPDevice.swift` | Feature-Discovery via Root-Feature `0x0000`, generischer Aufruf |
 | `Sources/HIDPPKit/Features/` | Battery `0x1004`, DPI `0x2201`, SmartShift `0x2110`, Buttons `0x1B04` |
+| `Sources/HIDPPKit/HIDPPWorker.swift` | HID-Zugriffe auf eigenem Thread, damit die GUI nicht blockiert |
+| `Sources/MXMenu/` | Menüleisten-App (SwiftUI) |
 | `Sources/mxctl/` | CLI |
+| `build-app.sh` | baut und installiert die App nach `/Applications` |
 | `Sources/hidraw/` | Diagnose-Tool für die IOKit/HID++-Ebene |
 | `Sources/gattscan/` | Diagnose-Tool für den (gescheiterten) CoreBluetooth-Weg |
 
