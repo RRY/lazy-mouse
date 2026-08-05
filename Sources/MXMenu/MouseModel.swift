@@ -17,6 +17,8 @@ final class MouseModel: ObservableObject {
     @Published var charging = false
     @Published var currentDPI: Int?
     @Published var scrollMode: SmartShiftFeature.Mode?
+    @Published var verticalInverted = false
+    @Published var horizontalInverted = false
 
     // Einstellungen werden von Hand in UserDefaults gespiegelt statt über @AppStorage:
     // dessen Wrapper löst in einer ObservableObject-Klasse kein objectWillChange aus, die
@@ -115,19 +117,26 @@ final class MouseModel: ObservableObject {
     }
 
     func refresh() {
-        worker.perform { device -> (Int?, Bool, Int?, SmartShiftFeature.Mode?) in
+        worker.perform { device -> Snapshot in
             let battery = try? BatteryFeature(device: device).status()
-            let dpi = try? AdjustableDPIFeature(device: device).currentDPI()
-            let scroll = try? SmartShiftFeature(device: device).status()
-            return (battery?.percentage, battery?.chargingStatus == .charging, dpi?.current, scroll?.mode)
+            return Snapshot(
+                batteryPercent: battery?.percentage,
+                charging: battery?.chargingStatus == .charging,
+                dpi: try? AdjustableDPIFeature(device: device).currentDPI().current,
+                scrollMode: try? SmartShiftFeature(device: device).status().mode,
+                verticalInverted: (try? HiResWheelFeature(device: device).isInverted()) ?? false,
+                horizontalInverted: (try? ThumbwheelFeature(device: device).isInverted()) ?? false
+            )
         } completion: { [weak self] result in
-            guard let self = self, case .success(let values) = result else { return }
+            guard let self = self, case .success(let snapshot) = result else { return }
             Task { @MainActor in
-                self.batteryPercent = values.0
-                self.charging = values.1
-                self.currentDPI = values.2
-                self.scrollMode = values.3
-                if let dpi = values.2, let index = self.cycleSteps.firstIndex(of: dpi) {
+                self.batteryPercent = snapshot.batteryPercent
+                self.charging = snapshot.charging
+                self.currentDPI = snapshot.dpi
+                self.scrollMode = snapshot.scrollMode
+                self.verticalInverted = snapshot.verticalInverted
+                self.horizontalInverted = snapshot.horizontalInverted
+                if let dpi = snapshot.dpi, let index = self.cycleSteps.firstIndex(of: dpi) {
                     self.stepIndex = index
                 }
             }
@@ -140,6 +149,37 @@ final class MouseModel: ObservableObject {
         } completion: { [weak self] result in
             Task { @MainActor in
                 if case .success = result { self?.currentDPI = dpi }
+            }
+        }
+    }
+
+    /// Ein Lesedurchgang. Als eigener Typ, weil ein Tupel mit sechs Feldern an der
+    /// Aufrufstelle nur noch aus Indizes bestünde.
+    private struct Snapshot {
+        let batteryPercent: Int?
+        let charging: Bool
+        let dpi: Int?
+        let scrollMode: SmartShiftFeature.Mode?
+        let verticalInverted: Bool
+        let horizontalInverted: Bool
+    }
+
+    func setVerticalInverted(_ inverted: Bool) {
+        worker.perform { device in
+            try HiResWheelFeature(device: device).setInverted(inverted)
+        } completion: { [weak self] result in
+            Task { @MainActor in
+                if case .success = result { self?.verticalInverted = inverted }
+            }
+        }
+    }
+
+    func setHorizontalInverted(_ inverted: Bool) {
+        worker.perform { device in
+            try ThumbwheelFeature(device: device).setInverted(inverted)
+        } completion: { [weak self] result in
+            Task { @MainActor in
+                if case .success = result { self?.horizontalInverted = inverted }
             }
         }
     }

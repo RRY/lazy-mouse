@@ -96,6 +96,21 @@ struct SettingsView: View {
                     Text("Freilauf").tag(SmartShiftFeature.Mode.freespin)
                 }
                 .pickerStyle(.segmented)
+
+                Toggle("Scrollrichtung umkehren", isOn: Binding(
+                    get: { model.verticalInverted },
+                    set: { model.setVerticalInverted($0) }
+                ))
+
+                Toggle("Daumenrad umkehren", isOn: Binding(
+                    get: { model.horizontalInverted },
+                    set: { model.setHorizontalInverted($0) }
+                ))
+
+                Text("Die Umkehrung wirkt im Gerät und kommt zur Scrollrichtung aus den "
+                     + "Systemeinstellungen hinzu — beide zusammen heben sich auf.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .disabled(!model.connected)
         }

@@ -46,19 +46,8 @@ struct MenuContent: View {
                 }
             }
 
-            Menu("Scrollrad") {
-                Button {
-                    model.setScrollMode(.ratchet)
-                } label: {
-                    Text(model.scrollMode == .ratchet ? "✓ Gerastert" : "Gerastert")
-                }
-                Button {
-                    model.setScrollMode(.freespin)
-                } label: {
-                    Text(model.scrollMode == .freespin ? "✓ Freilauf" : "Freilauf")
-                }
-            }
-
+            // Das Scrollrad steht nur im Einstellungsfenster: seltener gebraucht als die
+            // DPI-Umschaltung, und das Menü soll kurz bleiben.
             Toggle("DPI-Taste aktiv", isOn: $model.cycleEnabled)
         } else if model.permissionDenied {
             // Ohne diese Berechtigung liefert IOHIDManagerOpen kIOReturnNotPermitted.
