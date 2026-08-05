@@ -203,8 +203,9 @@ case "buttons":
     }
 
 case "dpi-cycle":
-    // Standard: die kleine Taste oberhalb des Scrollrads (nativ SmartShift-Umschaltung).
-    var buttonCID: UInt16 = 0x00C4
+    // Standard: die Daumentaste. Sie ist ohne Logitech Options ungenutzt, während die
+    // kleine Taste oberhalb des Scrollrads (0x00C4) nativ die Rasterung umschaltet.
+    var buttonCID: UInt16 = 0x00C3
     var steps = [1000, 1600, 2400]
     if let idx = args.firstIndex(of: "--button"), args.count > idx + 1,
        let parsed = UInt16(args[idx + 1].replacingOccurrences(of: "0x", with: ""), radix: 16) {

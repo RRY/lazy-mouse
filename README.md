@@ -18,17 +18,21 @@ mxctl dpi-cycle [--button <controlIdHex>] [--steps 1000,1600,2400]
 ## DPI-Umschaltung per Taste
 
 `mxctl dpi-cycle` leitet eine Taste um und schaltet bei jedem Druck zur nächsten
-DPI-Stufe. Vorbelegt ist `0x00C4` — die kleine Taste oberhalb des Scrollrads:
+DPI-Stufe. Vorbelegt ist die Daumentaste `0x00C3`:
 
 ```
 mxctl dpi-cycle --steps 800,1600,3200
 ```
 
 Läuft, bis es mit Strg-C beendet wird; dabei werden Taste und ursprünglicher DPI-Wert
-zurückgesetzt. Solange es läuft, entfällt die native Funktion der Taste — bei `0x00C4`
-ist das die Umschaltung zwischen gerastertem und freilaufendem Scrollrad. Nach dem
-Beenden schaltet die Taste wieder wie gewohnt, was das Rad in den zuletzt per Hand
-gewählten Zustand bringen kann.
+zurückgesetzt. Solange es läuft, entfällt die native Funktion der Taste — bei der
+Daumentaste ist das die Gestensteuerung, die ohne Logitech Options ohnehin ungenutzt ist.
+
+Andere Tasten lassen sich mit `--button` wählen, etwa die kleine Taste oberhalb des
+Scrollrads: `mxctl dpi-cycle --button 00C4`. Deren native Funktion ist allerdings die
+Umschaltung zwischen gerastertem und freilaufendem Scrollrad — die entfällt dann während
+der Laufzeit, und nach dem Beenden kann das Rad im zuletzt per Hand gewählten Zustand
+stehen.
 
 ## Voraussetzung: Eingabeüberwachung
 
