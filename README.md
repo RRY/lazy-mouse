@@ -213,6 +213,28 @@ und lässt das Rad tot zurück, sobald der Prozess nicht läuft. Werkzeuge wie M
 gehen diesen Weg und lassen sich parallel betreiben: sie setzen an den Ereignissen an,
 dieses Projekt an der Gerätekonfiguration.
 
+### Gesten: rohe Koordinaten über das virtuelle Control
+
+Für Gesten gibt es einen eigenen Mechanismus, am Gerät nachgemessen:
+
+* Das rawXY-Bit (`0x80` in `GetCidInfo`) trägt **ausschließlich** `0x00D7`
+  ("Virtuelle Gestentaste"). Keine physische Taste hat es — auch die Daumentaste `0x00C3`
+  nicht, die nur `0x31` meldet.
+* Wird ein Control mit `SetCidReporting` und Flags `0x33` versehen (divert `0x01` +
+  dvalid `0x02` + rawXY `0x10` + rvalid `0x20`), meldet das Gerät bei gedrückter Taste
+  **keine Zeigerbewegung mehr, sondern Rohkoordinaten**. Der Zeiger bleibt sichtbar stehen —
+  genau das, was eine Gestenerkennung braucht.
+* Format der Meldung: `FF <featureIndex> 10 <X 16 Bit> <Y 16 Bit>`, vorzeichenbehaftet und
+  big-endian. Beispiel: `FF 09 10 FF F8 00 01` = X −8, Y +1. Der Tastendruck selbst kommt
+  weiterhin als `FF <featureIndex> 00 <cid>`.
+* In einem Testlauf über 40 Sekunden kamen 2308 solcher Meldungen.
+
+Eine Gestensteuerung — etwa fürs Fenstermanagement — wäre damit umsetzbar: Koordinaten
+zwischen Druck und Loslassen aufsummieren, Richtung bestimmen, Aktion auslösen. Sie
+erforderte zusätzlich die Bedienungshilfen-Berechtigung und liefe nur bei laufender App.
+Ungeklärt ist, ob `0x00D7` seine Rohkoordinaten zwingend nur bei gedrückter Daumentaste
+liefert oder auch mit anderen Tasten zusammenspielt; getestet wurde nur die Daumentaste.
+
 ### Die LED ist die Ladeanzeige
 
 Die grüne LED neben dem Daumenrad blinkt beim Laden und bleibt sonst dunkel — auch beim
