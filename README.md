@@ -66,6 +66,7 @@ mxctl buttons list
 mxctl buttons divert <controlIdHex> <on|off>
 mxctl buttons reset <controlIdHex>
 mxctl buttons watch [sekunden]
+mxctl name [neuer name]       # Gerätename lesen oder setzen
 mxctl dpi-cycle [--button <controlIdHex>] [--steps 1000,1600,2400]
 ```
 
@@ -155,6 +156,21 @@ Git-Historie von `Sources/hidraw`):
 
 9. **Diverted Tasten melden Press und Release getrennt.** Notification-Format:
    `FF <featureIndex> 00 <cid_hi> <cid_lo>` beim Druck, mit CID `0x0000` beim Loslassen.
+
+10. **Der Setter für den Gerätenamen liegt auf Funktion 3, nicht 2.** Bei Feature `0x0007`
+    liefert Funktion 2 den *Standard*namen — ein Schreibversuch darauf wird klaglos
+    quittiert, ändert aber nichts. Funktion 3 schreibt und meldet die Zahl der übernommenen
+    Zeichen zurück, Funktion 4 setzt auf den Werksnamen zurück. Ein Rücklesen nach dem
+    Schreiben deckt solche stillen Fehlschläge auf.
+
+### Was die MX Master 3S nicht kann
+
+Die Feature-Liste des Geräts (36 Einträge, ermittelt über Feature `0x0001`) enthält weder
+`0x8060` (Abtastrate) noch `0x8100` (Profile im Gerät) — beides gibt es bei dieser Maus
+schlicht nicht, anders als bei Logitechs Gaming-Modellen. Ebenso wenig eine Beschleunigungs-
+oder Kurveneinstellung; die liegt bei macOS. Der überwiegende Teil der übrigen Features ist
+als *versteckt* oder *technisch* markiert (Firmware-Update, SPI-Direktzugriff, LED-Steuerung)
+und für den Alltag ohne Belang.
 
 ## MenuBarExtra in Menü-Darstellung
 

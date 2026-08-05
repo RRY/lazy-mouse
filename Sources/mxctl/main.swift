@@ -51,6 +51,19 @@ switch command {
 case "status":
     let device = connectedDevice()
     print("Produkt: \(device.productName)")
+    if let name = try? FriendlyNameFeature(device: device).name() {
+        print("Name: \(name)")
+    }
+    let info = DeviceInfoFeature(device: device)
+    if let firmware = try? info.firmwareVersion() {
+        print("Firmware: \(firmware ?? "?")")
+    }
+    if let serial = try? info.serialNumber() {
+        print("Seriennummer: \(serial ?? "?")")
+    }
+    if let host = try? HostChannelFeature(device: device).current() {
+        print("Kanal: \(host.channel) von \(host.total)")
+    }
     if let battery = try? BatteryFeature(device: device).status() {
         print("Batterie: \(battery.percentage)% (\(battery.chargingStatus))")
     }
@@ -200,6 +213,20 @@ case "buttons":
         print("Fertig.")
     default:
         printUsage(); exit(1)
+    }
+
+case "name":
+    let device = connectedDevice()
+    let feature = FriendlyNameFeature(device: device)
+    guard args.count >= 2 else {
+        print((try? feature.name()) ?? "?")
+        exit(0)
+    }
+    do {
+        try feature.setName(args[1])
+        print("Name gesetzt: \(try feature.name())")
+    } catch {
+        fail("Name konnte nicht gesetzt werden: \(error)")
     }
 
 case "dpi-cycle":

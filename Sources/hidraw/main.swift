@@ -2,17 +2,16 @@ import Foundation
 import IOKit
 import IOKit.hid
 
-// Diagnose Phase 8: Gibt es Features für die Scrollrichtung beider Räder?
+// Diagnose Phase 11: welche Funktion von 0x0007 (DeviceFriendlyName) schreibt wirklich?
 //
-// Kandidaten laut Protokolldokumentation:
-//   0x2121 HiResWheel  — vertikales Scrollrad, Modus-Flags inkl. Invertierung
-//   0x2150 Thumbwheel  — horizontales Daumenrad, Status/Reporting inkl. Invertierung
-//   0x2110 SmartShift  — bereits bekannt, zur Kontrolle mit aufgeführt
-//
-// Ermittelt wird, welche davon das Gerät kennt, in welcher Version, und wie die
-// aktuellen Rohwerte aussehen.
+// Ein Aufruf von function 2 mit [byteIndex, Zeichen] lief fehlerfrei durch, ließ den Namen
+// aber unverändert. Verdacht: function 2 ist getDefaultFriendlyName (ein Getter), der
+// Setter liegt auf function 3.
 
 func hexBytes(_ b: [UInt8]) -> String { b.map { String(format: "%02X", $0) }.joined(separator: " ") }
+func ascii(_ b: [UInt8]) -> String {
+    String(bytes: b.filter { $0 >= 0x20 && $0 < 0x7F }, encoding: .ascii) ?? ""
+}
 
 let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
 IOHIDManagerSetDeviceMatching(manager, [kIOHIDVendorIDKey as String: 0x046D] as CFDictionary)
@@ -68,42 +67,42 @@ func request(_ featureIndex: UInt8, _ function: UInt8, _ params: [UInt8] = []) -
     return (nil, nil)
 }
 
-func featureIndex(_ id: UInt16) -> UInt8? {
-    guard let p = request(0x00, 0x00, [UInt8(id >> 8), UInt8(id & 0xFF)]).params,
-          p.count >= 1, p[0] != 0 else { return nil }
-    return p[0]
+guard let root = request(0x00, 0x00, [0x00, 0x07]).params, root[0] != 0 else {
+    print("0x0007 nicht vorhanden."); exit(1)
+}
+let name = root[0]
+
+func currentName() -> String {
+    guard let p = request(name, 0x01, [0x00]).params, p.count > 1 else { return "?" }
+    return ascii(Array(p[1...]))
 }
 
-// --- 0x2121 HiResWheel: welches Bit in SetWheelMode invertiert? ---
-if let wheel = featureIndex(0x2121) {
-    let before = request(wheel, 0x01).params ?? []
-    print("HiResWheel GetWheelMode vorher: \(hexBytes(Array(before.prefix(4))))")
-    print("           GetCapability:       \(hexBytes(Array((request(wheel, 0x00).params ?? []).prefix(4))))")
+print("Name jetzt: '\(currentName())'")
+print("Längen: \(hexBytes(Array((request(name, 0x00).params ?? []).prefix(3))))")
 
-    for bit: UInt8 in [0x01, 0x02, 0x04, 0x08] {
-        _ = request(wheel, 0x02, [bit])
-        let after = request(wheel, 0x01).params ?? []
-        print(String(format: "   SetWheelMode(0x%02X) -> GetWheelMode %@", bit, hexBytes(Array(after.prefix(3)))))
+// Alle Funktionen ohne Parameter abklopfen, um Getter von Settern zu trennen.
+print("\n--- Funktionen ohne Parameter ---")
+for function: UInt8 in 0...5 {
+    let r = request(name, function)
+    if let p = r.params {
+        print("  f\(function): \(hexBytes(Array(p.prefix(10))))  '\(ascii(Array(p.prefix(16))))'")
+    } else {
+        print("  f\(function): Fehler 0x\(String(format: "%02X", r.error ?? 0))")
     }
-    // Ausgangszustand wiederherstellen.
-    _ = request(wheel, 0x02, [before.first ?? 0])
-    print("   zurückgesetzt auf: \(hexBytes(Array((request(wheel, 0x01).params ?? []).prefix(3))))")
 }
 
-// --- 0x2150 Thumbwheel: Parameterlayout von SetThumbwheelReporting ---
-if let thumb = featureIndex(0x2150) {
-    let info = request(thumb, 0x00).params ?? []
-    let before = request(thumb, 0x01).params ?? []
-    print("\nThumbwheel GetInfo:   \(hexBytes(Array(info.prefix(8))))")
-    print("           GetStatus vorher: \(hexBytes(Array(before.prefix(4))))")
-
-    for params in [[UInt8(0x00), 0x01], [0x01, 0x00], [0x00, 0x02], [0x02, 0x00]] {
-        let r = request(thumb, 0x02, params)
-        let after = request(thumb, 0x01).params ?? []
-        let verdict = r.error.map { "Fehler 0x\(String(format: "%02X", $0))" } ?? "OK"
-        print("   SetReporting(\(hexBytes(params))) -> \(verdict), GetStatus \(hexBytes(Array(after.prefix(3))))")
-    }
-    // Ausgangszustand wiederherstellen.
-    _ = request(thumb, 0x02, [before.count > 0 ? before[0] : 0, before.count > 1 ? before[1] : 0])
-    print("   zurückgesetzt auf: \(hexBytes(Array((request(thumb, 0x01).params ?? []).prefix(3))))")
+// Schreibversuch auf f2 und f3, jeweils mit Kontrolle.
+let probe: [UInt8] = Array("ZZTest".utf8)
+for function: UInt8 in [2, 3] {
+    let r = request(name, function, [0x00] + probe)
+    let verdict = r.error.map { "Fehler 0x\(String(format: "%02X", $0))" } ?? "OK \(hexBytes(Array((r.params ?? []).prefix(4))))"
+    print("\n  setze über f\(function): \(verdict)")
+    print("  Name danach: '\(currentName())'")
 }
+
+// In jedem Fall den ursprünglichen Namen wiederherstellen.
+let original: [UInt8] = Array("MX Master 3S".utf8)
+for function: UInt8 in [3, 2] {
+    _ = request(name, function, [0x00] + original)
+}
+print("\nName am Ende: '\(currentName())'")

@@ -19,6 +19,11 @@ final class MouseModel: ObservableObject {
     @Published var scrollMode: SmartShiftFeature.Mode?
     @Published var verticalInverted = false
     @Published var horizontalInverted = false
+    @Published var firmwareVersion: String?
+    @Published var serialNumber: String?
+    @Published var hostChannel: (channel: Int, total: Int)?
+    @Published var friendlyName = ""
+    @Published var friendlyNameProblem: String?
 
     // Einstellungen werden von Hand in UserDefaults gespiegelt statt über @AppStorage:
     // dessen Wrapper löst in einer ObservableObject-Klasse kein objectWillChange aus, die
@@ -94,6 +99,7 @@ final class MouseModel: ObservableObject {
             connected = true
             permissionDenied = false
             statusMessage = "Verbunden"
+            loadStaticInfo()
             refresh()
             // Batterie ändert sich träge; ein Intervall von einer Minute reicht.
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
@@ -125,7 +131,9 @@ final class MouseModel: ObservableObject {
                 dpi: try? AdjustableDPIFeature(device: device).currentDPI().current,
                 scrollMode: try? SmartShiftFeature(device: device).status().mode,
                 verticalInverted: (try? HiResWheelFeature(device: device).isInverted()) ?? false,
-                horizontalInverted: (try? ThumbwheelFeature(device: device).isInverted()) ?? false
+                horizontalInverted: (try? ThumbwheelFeature(device: device).isInverted()) ?? false,
+                // Kann sich ändern, wenn am Gerät der Kanal umgeschaltet wird.
+                hostChannel: try? HostChannelFeature(device: device).current()
             )
         } completion: { [weak self] result in
             guard let self = self, case .success(let snapshot) = result else { return }
@@ -136,6 +144,7 @@ final class MouseModel: ObservableObject {
                 self.scrollMode = snapshot.scrollMode
                 self.verticalInverted = snapshot.verticalInverted
                 self.horizontalInverted = snapshot.horizontalInverted
+                self.hostChannel = snapshot.hostChannel
                 if let dpi = snapshot.dpi, let index = self.cycleSteps.firstIndex(of: dpi) {
                     self.stepIndex = index
                 }
@@ -162,6 +171,51 @@ final class MouseModel: ObservableObject {
         let scrollMode: SmartShiftFeature.Mode?
         let verticalInverted: Bool
         let horizontalInverted: Bool
+        let hostChannel: (channel: Int, total: Int)?
+    }
+
+    /// Firmware, Seriennummer und Name ändern sich nicht von selbst — einmal beim Verbinden
+    /// zu lesen genügt, statt sie in jeden Minutentakt aufzunehmen.
+    private func loadStaticInfo() {
+        worker.perform { device -> (String?, String?, String) in
+            let info = DeviceInfoFeature(device: device)
+            return (
+                try? info.firmwareVersion(),
+                try? info.serialNumber(),
+                (try? FriendlyNameFeature(device: device).name()) ?? ""
+            )
+        } completion: { [weak self] result in
+            guard case .success(let values) = result else { return }
+            Task { @MainActor in
+                self?.firmwareVersion = values.0
+                self?.serialNumber = values.1
+                self?.friendlyName = values.2
+            }
+        }
+    }
+
+    func setFriendlyName(_ newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
+            friendlyNameProblem = "Der Name darf nicht leer sein."
+            return
+        }
+        worker.perform { device -> String in
+            let feature = FriendlyNameFeature(device: device)
+            try feature.setName(trimmed)
+            // Zurücklesen: das Gerät kürzt zu lange Namen selbst.
+            return try feature.name()
+        } completion: { [weak self] result in
+            Task { @MainActor in
+                switch result {
+                case .success(let stored):
+                    self?.friendlyName = stored
+                    self?.friendlyNameProblem = stored == trimmed ? nil : "Auf \(stored.count) Zeichen gekürzt."
+                case .failure(let error):
+                    self?.friendlyNameProblem = "\(error)"
+                }
+            }
+        }
     }
 
     func setVerticalInverted(_ inverted: Bool) {

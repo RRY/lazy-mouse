@@ -4,6 +4,9 @@ import HIDPPKit
 struct SettingsView: View {
     @ObservedObject var model: MouseModel
 
+    /// Eingabepuffer für den Gerätenamen, damit nicht jeder Tastendruck ans Gerät geht.
+    @State private var editedName = ""
+
     /// Die programmierbaren Tasten der MX Master 3S. Die Control-IDs stammen aus
     /// `mxctl buttons list`; nur umleitbare Tasten sind sinnvoll wählbar.
     private static let selectableButtons: [(cid: Int, name: String)] = [
@@ -45,7 +48,30 @@ struct SettingsView: View {
                 if let dpi = model.currentDPI {
                     LabeledContent("Aktuelle DPI", value: "\(dpi)")
                 }
+                if let host = model.hostChannel {
+                    LabeledContent("Kanal", value: "\(host.channel) von \(host.total)")
+                }
+                if let firmware = model.firmwareVersion {
+                    LabeledContent("Firmware", value: firmware)
+                }
+                if let serial = model.serialNumber {
+                    LabeledContent("Seriennummer", value: serial)
+                        .textSelection(.enabled)
+                }
             }
+
+            Section("Name") {
+                // Erst beim Bestätigen schreiben: sonst ginge pro Tastendruck ein
+                // Schreibvorgang ans Gerät.
+                TextField("Gerätename", text: $editedName)
+                    .onSubmit { model.setFriendlyName(editedName) }
+                Text(model.friendlyNameProblem ?? "Mit Return bestätigen. Nur ASCII-Zeichen.")
+                    .font(.caption)
+                    .foregroundStyle(model.friendlyNameProblem == nil ? Color.secondary : Color.orange)
+            }
+            .disabled(!model.connected)
+            .onAppear { editedName = model.friendlyName }
+            .onChange(of: model.friendlyName) { _, new in editedName = new }
 
             Section("DPI-Umschaltung per Taste") {
                 Toggle("Aktiviert", isOn: $model.cycleEnabled)
