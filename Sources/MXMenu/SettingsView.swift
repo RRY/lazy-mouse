@@ -16,6 +16,27 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            if !model.connected {
+                Section {
+                    // Ohne Gerätezugriff bleiben alle folgenden Einstellungen wirkungslos;
+                    // der Grund gehört deshalb an den Anfang, nicht ans Ende.
+                    Label(model.statusMessage, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    if model.permissionDenied {
+                        Text("Nach dem Erteilen muss die App neu gestartet werden.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Eingabeüberwachung öffnen …") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    } else {
+                        Button("Erneut verbinden") { model.connect() }
+                    }
+                }
+            }
+
             Section("Gerät") {
                 LabeledContent("Status", value: model.connected ? model.productName : model.statusMessage)
                 if let percent = model.batteryPercent {
@@ -47,6 +68,8 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            // Alles hier drin greift auf die Maus zu und wäre ohne Verbindung wirkungslos.
+            .disabled(!model.connected)
 
             Section("Start") {
                 Toggle("Beim Anmelden starten", isOn: Binding(
@@ -74,6 +97,7 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
             }
+            .disabled(!model.connected)
         }
         .formStyle(.grouped)
         .frame(width: 420)
