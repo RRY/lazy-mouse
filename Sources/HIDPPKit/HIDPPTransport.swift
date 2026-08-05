@@ -48,6 +48,11 @@ public final class HIDPPTransport {
     /// Usage Page der gefundenen HID++ Vendor-Collection (z. B. 0xFF43 bei BLE).
     public private(set) var vendorUsagePage: UInt32 = 0
 
+    /// Wird für jede Notification des Geräts (Software-ID 0) aufgerufen, sobald sie
+    /// eintrifft — im Gegensatz zu `listen(...)` ohne zu blockieren. Läuft auf dem Thread,
+    /// dessen RunLoop das Gerät bedient.
+    public var onNotification: (([UInt8]) -> Void)?
+
     public init() {
         inputBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: inputBufferSize)
     }
@@ -113,7 +118,11 @@ public final class HIDPPTransport {
                     // Der Callback liefert die Report-ID als erstes Byte mit.
                     let raw = Array(UnsafeBufferPointer(start: report, count: reportLength))
                     guard raw.count > 1 else { return }
-                    transport.receivedBodies.append(Array(raw.dropFirst()))
+                    let body = Array(raw.dropFirst())
+                    transport.receivedBodies.append(body)
+                    if body.count >= 3, (body[2] & 0x0F) == 0 {
+                        transport.onNotification?(body)
+                    }
                 },
                 Unmanaged.passUnretained(self).toOpaque()
             )

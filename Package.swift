@@ -4,7 +4,8 @@ import PackageDescription
 let package = Package(
     name: "mxctl",
     platforms: [
-        .macOS(.v13)
+        // macOS 14 wegen SettingsLink und der zweiparametrigen onChange-Signatur in MXMenu.
+        .macOS(.v14)
     ],
     targets: [
         .target(
@@ -15,6 +16,12 @@ let package = Package(
             name: "mxctl",
             dependencies: ["HIDPPKit"],
             path: "Sources/mxctl"
+        ),
+        .executableTarget(
+            name: "MXMenu",
+            dependencies: ["HIDPPKit"],
+            path: "Sources/MXMenu",
+            exclude: ["Info.plist"]
         ),
         .executableTarget(
             name: "hidraw",
