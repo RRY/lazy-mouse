@@ -51,7 +51,37 @@ printf 'APPL????' > "$APP/Contents/PkgInfo"
 #     -addext "extendedKeyUsage=critical,codeSigning"
 SIGN_IDENTITY="${SIGN_IDENTITY:-MX Menu Local Signing}"
 
-if security find-certificate -c "$SIGN_IDENTITY" >/dev/null 2>&1; then
+# Bevorzugt eine von Apple ausgestellte Developer ID: nur damit akzeptiert Gatekeeper die
+# App auch auf fremden Rechnern. Sonst das lokale Zertifikat, sonst ad hoc.
+# Das abschließende `|| true` ist nötig: ohne Developer ID liefert grep Exitcode 1, was
+# unter `set -e` mit `pipefail` das ganze Skript beenden würde — die App bliebe unsigniert.
+DEVELOPER_ID="$(security find-identity -v -p codesigning 2>/dev/null \
+    | grep "Developer ID Application" | head -1 | sed -E 's/.*"(.*)"/\1/' || true)"
+
+if [ -n "$DEVELOPER_ID" ]; then
+    # --options runtime (Hardened Runtime) ist Voraussetzung für die Notarisierung,
+    # --timestamp ebenso: ohne beglaubigten Zeitstempel lehnt Apple die Einreichung ab.
+    codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID" "$APP"
+    echo "Signiert mit: $DEVELOPER_ID"
+
+    # Notarisierung nur auf Wunsch: sie braucht ein hinterlegtes Anmeldeprofil und
+    # überträgt die App an Apple. Anlegen (einmalig, das Passwort ist ein
+    # app-spezifisches Passwort von appleid.apple.com):
+    #   xcrun notarytool store-credentials MXMenu --apple-id DEINE-APPLE-ID \
+    #     --team-id DEINE-TEAM-ID --password APP-SPEZIFISCHES-PASSWORT
+    if [ -n "${NOTARIZE_PROFILE:-}" ]; then
+        ZIP="$(dirname "$APP")/MXMenu-notarize.zip"
+        ditto -c -k --keepParent "$APP" "$ZIP"
+        xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARIZE_PROFILE" --wait
+        # Heftet das Ticket an die App, damit sie auch offline als beglaubigt gilt.
+        xcrun stapler staple "$APP"
+        rm -f "$ZIP"
+        spctl -a -vvv -t install "$APP" || true
+    else
+        echo "Hinweis: nicht notarisiert. Für den Versand an andere Macs:" >&2
+        echo "         NOTARIZE_PROFILE=<Profilname> ./build-app.sh" >&2
+    fi
+elif security find-certificate -c "$SIGN_IDENTITY" >/dev/null 2>&1; then
     codesign --force --sign "$SIGN_IDENTITY" "$APP"
 else
     echo "Hinweis: Zertifikat '$SIGN_IDENTITY' nicht gefunden, signiere ad hoc." >&2
