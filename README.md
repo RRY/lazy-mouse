@@ -163,6 +163,20 @@ Git-Historie von `Sources/hidraw`):
     Zeichen zurück, Funktion 4 setzt auf den Werksnamen zurück. Ein Rücklesen nach dem
     Schreiben deckt solche stillen Fehlschläge auf.
 
+### Reentranz: keine RunLoop-Blöcke für HID-Aufträge
+
+`HIDPPTransport.request` pumpt beim Warten auf die Geräteantwort die RunLoop. Werden
+Aufträge über `CFRunLoopPerformBlock` eingereiht, führt diese Pumpe **den nächsten
+wartenden Block innerhalb des laufenden aus**. Der innere Aufruf leert dabei den
+Empfangspuffer des Transports, sodass die Antwort des äußeren verloren geht — je nach
+Verschachtelung mit stillschweigend falschem Ergebnis oder als Hänger.
+
+Aufgefallen ist das erst, als zwei Lesevorgänge unmittelbar nacheinander eingereiht wurden
+(Geräteinfo und Statusabfrage beim Verbinden): Die Firmware kam als `nil` an, während
+Seriennummer und Name aus demselben Block korrekt gelesen wurden. `HIDPPWorker` führt
+deshalb eine eigene Warteschlange und entnimmt Aufträge nur auf oberster Ebene der
+Thread-Schleife, außerhalb jedes RunLoop-Aufrufs.
+
 ### Was die MX Master 3S nicht kann
 
 Die Feature-Liste des Geräts (36 Einträge, ermittelt über Feature `0x0001`) enthält weder
@@ -193,7 +207,7 @@ Menü-Darstellung, nicht bei `.menuBarExtraStyle(.window)`:
 | `Sources/HIDPPKit/HIDPPTransport.swift` | IOKit-Transport (Punkte 1–5 oben) |
 | `Sources/HIDPPKit/HIDPPDevice.swift` | Feature-Discovery via Root-Feature `0x0000`, generischer Aufruf |
 | `Sources/HIDPPKit/Features/` | Battery `0x1004`, DPI `0x2201`, SmartShift `0x2110`, Buttons `0x1B04` |
-| `Sources/HIDPPKit/HIDPPWorker.swift` | HID-Zugriffe auf eigenem Thread, damit die GUI nicht blockiert |
+| `Sources/HIDPPKit/HIDPPWorker.swift` | HID-Zugriffe auf eigenem Thread, damit die GUI nicht blockiert (siehe Reentranz unten) |
 | `Sources/MXMenu/` | Menüleisten-App (SwiftUI) |
 | `Sources/mxctl/` | CLI |
 | `build-app.sh` | baut und installiert die App nach `/Applications` |

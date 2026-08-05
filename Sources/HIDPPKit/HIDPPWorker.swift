@@ -24,6 +24,16 @@ public final class HIDPPWorker {
     private let stateLock = NSLock()
     private var _state: State = .idle
 
+    /// Wartende Aufträge. Bewusst eine eigene Warteschlange statt `CFRunLoopPerformBlock`:
+    /// Ein Auftrag pumpt beim Warten auf die Geräteantwort die RunLoop erneut, und die
+    /// führte dabei den nächsten eingereihten Block *innerhalb* des laufenden aus. Der
+    /// innere Aufruf leert den Empfangspuffer des Transports, wodurch die Antwort des
+    /// äußeren verloren geht — je nach Verschachtelung mit falschem Ergebnis oder Hänger.
+    /// Aus dieser Warteschlange werden Aufträge nur auf oberster Ebene der Thread-Schleife
+    /// entnommen, sodass sich Aufrufe nie überlappen können.
+    private let jobLock = NSLock()
+    private var pendingJobs: [() -> Void] = []
+
     /// Wird bei Tastendrücken umgeleiteter Tasten aufgerufen — bereits auf die Hauptqueue
     /// zugestellt, damit Aufrufer direkt die Oberfläche aktualisieren können.
     public var onNotification: (([UInt8]) -> Void)?
@@ -57,9 +67,12 @@ public final class HIDPPWorker {
             }
             self.startupSemaphore.signal()
 
-            // Am Leben halten, damit die RunLoop Input-Reports zustellt und Arbeit annimmt.
+            // Am Leben halten, damit die RunLoop Input-Reports zustellt. Aufträge werden
+            // erst nach der Rückkehr aus der RunLoop abgearbeitet, also außerhalb jedes
+            // RunLoop-Aufrufs — nur so bleiben sie garantiert unverschachtelt.
             while !Thread.current.isCancelled {
                 CFRunLoopRunInMode(.defaultMode, 0.1, false)
+                self.drainJobs()
             }
         }
         thread.name = "de.ryback.mxmenu.hid"
@@ -74,14 +87,28 @@ public final class HIDPPWorker {
         thread = nil
     }
 
+    private func enqueue(_ job: @escaping () -> Void) {
+        jobLock.lock()
+        pendingJobs.append(job)
+        jobLock.unlock()
+        // Weckt die RunLoop, damit der Auftrag nicht bis zum Ablauf des Intervalls wartet.
+        if let runLoop = runLoop { CFRunLoopWakeUp(runLoop) }
+    }
+
+    private func drainJobs() {
+        while true {
+            jobLock.lock()
+            let job = pendingJobs.isEmpty ? nil : pendingJobs.removeFirst()
+            jobLock.unlock()
+            guard let job = job else { return }
+            job()
+        }
+    }
+
     /// Führt `work` auf dem HID-Thread aus und liefert das Ergebnis auf der Hauptqueue.
     public func perform<T>(_ work: @escaping (HIDPPDevice) throws -> T,
                            completion: @escaping (Result<T, Error>) -> Void) {
-        guard let runLoop = runLoop else {
-            completion(.failure(HIDPPError.notConnected))
-            return
-        }
-        CFRunLoopPerformBlock(runLoop, CFRunLoopMode.defaultMode.rawValue) { [weak self] in
+        enqueue { [weak self] in
             guard let device = self?.device else {
                 DispatchQueue.main.async { completion(.failure(HIDPPError.notConnected)) }
                 return
@@ -89,7 +116,6 @@ public final class HIDPPWorker {
             let result = Result { try work(device) }
             DispatchQueue.main.async { completion(result) }
         }
-        CFRunLoopWakeUp(runLoop)
     }
 
     /// Führt `work` auf dem HID-Thread aus und wartet auf das Ergebnis.
@@ -100,16 +126,15 @@ public final class HIDPPWorker {
     @discardableResult
     public func performSync<T>(timeout: TimeInterval = 2.0,
                                _ work: @escaping (HIDPPDevice) throws -> T) -> Result<T, Error> {
-        guard let runLoop = runLoop else { return .failure(HIDPPError.notConnected) }
+        guard runLoop != nil else { return .failure(HIDPPError.notConnected) }
         let done = DispatchSemaphore(value: 0)
         var result: Result<T, Error> = .failure(HIDPPError.notConnected)
-        CFRunLoopPerformBlock(runLoop, CFRunLoopMode.defaultMode.rawValue) { [weak self] in
+        enqueue { [weak self] in
             if let device = self?.device {
                 result = Result { try work(device) }
             }
             done.signal()
         }
-        CFRunLoopWakeUp(runLoop)
         _ = done.wait(timeout: .now() + timeout)
         return result
     }
