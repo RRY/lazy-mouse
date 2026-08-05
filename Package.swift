@@ -17,6 +17,10 @@ let package = Package(
             path: "Sources/mxctl"
         ),
         .executableTarget(
+            name: "hidraw",
+            path: "Sources/hidraw"
+        ),
+        .executableTarget(
             name: "gattscan",
             path: "Sources/gattscan",
             exclude: ["Info.plist"],

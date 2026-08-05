@@ -28,7 +28,7 @@ public struct AdjustableDPIFeature {
     /// Function 0x01: GetSensorDpiList. Werte ab 0xE000 markieren einen Bereich [start, end]
     /// mit fester Schrittweite `step`, alle anderen 16-Bit-Werte sind einzeln wählbare DPI-Stufen.
     public func dpiList() throws -> (fixedValues: [Int], range: SensorRange?) {
-        let response = try device.call(feature: AdjustableDPIFeature.featureID, function: 0x01, params: [sensorIndex], long: true)
+        let response = try device.call(feature: AdjustableDPIFeature.featureID, function: 0x01, params: [sensorIndex])
         var fixed: [Int] = []
         var range: SensorRange?
         var i = 0
@@ -52,7 +52,7 @@ public struct AdjustableDPIFeature {
 
     /// Function 0x02: GetSensorDpi -> (aktuelle DPI, Standard-DPI)
     public func currentDPI() throws -> (current: Int, `default`: Int) {
-        let response = try device.call(feature: AdjustableDPIFeature.featureID, function: 0x02, params: [sensorIndex], long: true)
+        let response = try device.call(feature: AdjustableDPIFeature.featureID, function: 0x02, params: [sensorIndex])
         guard response.params.count >= 5 else { throw HIDPPError.malformedResponse }
         let current = (Int(response.params[1]) << 8) | Int(response.params[2])
         let def = (Int(response.params[3]) << 8) | Int(response.params[4])
@@ -63,6 +63,6 @@ public struct AdjustableDPIFeature {
     public func setDPI(_ dpi: Int) throws {
         let hi = UInt8((dpi >> 8) & 0xFF)
         let lo = UInt8(dpi & 0xFF)
-        try device.call(feature: AdjustableDPIFeature.featureID, function: 0x03, params: [sensorIndex, hi, lo], long: true)
+        try device.call(feature: AdjustableDPIFeature.featureID, function: 0x03, params: [sensorIndex, hi, lo])
     }
 }

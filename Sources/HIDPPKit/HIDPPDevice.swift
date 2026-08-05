@@ -44,26 +44,23 @@ public final class HIDPPDevice {
         return index
     }
 
-    /// Generischer Feature-Aufruf. `long: true` erzwingt einen 20-Byte-Report für Antworten
-    /// mit mehr als 3 Nutzbytes.
+    /// Generischer Feature-Aufruf.
     @discardableResult
-    public func call(featureIndex: UInt8, function: UInt8, params: [UInt8] = [], long: Bool = false, timeout: TimeInterval = 2.0) throws -> HIDPPResponse {
-        let swID = nextSoftwareID()
-        return try transport.request(
+    public func call(featureIndex: UInt8, function: UInt8, params: [UInt8] = [], timeout: TimeInterval = 2.0) throws -> HIDPPResponse {
+        try transport.request(
             deviceIndex: deviceIndex,
             featureIndex: featureIndex,
             function: function,
-            swID: swID,
+            swID: nextSoftwareID(),
             params: params,
-            long: long || params.count > 3,
             timeout: timeout
         )
     }
 
     /// Bequemlichkeitsmethode: Feature-ID auflösen und direkt aufrufen.
     @discardableResult
-    public func call(feature featureID: UInt16, function: UInt8, params: [UInt8] = [], long: Bool = false, timeout: TimeInterval = 2.0) throws -> HIDPPResponse {
+    public func call(feature featureID: UInt16, function: UInt8, params: [UInt8] = [], timeout: TimeInterval = 2.0) throws -> HIDPPResponse {
         let index = try featureIndex(for: featureID)
-        return try call(featureIndex: index, function: function, params: params, long: long, timeout: timeout)
+        return try call(featureIndex: index, function: function, params: params, timeout: timeout)
     }
 }

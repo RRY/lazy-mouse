@@ -35,7 +35,7 @@ public struct SpecialButtonsFeature {
         let n = try count()
         var controls: [Control] = []
         for index in 0..<n {
-            let response = try device.call(feature: SpecialButtonsFeature.featureID, function: 0x01, params: [UInt8(index)], long: true)
+            let response = try device.call(feature: SpecialButtonsFeature.featureID, function: 0x01, params: [UInt8(index)])
             guard response.params.count >= 7 else { continue }
             let cid = (UInt16(response.params[0]) << 8) | UInt16(response.params[1])
             let tid = (UInt16(response.params[2]) << 8) | UInt16(response.params[3])
@@ -56,6 +56,6 @@ public struct SpecialButtonsFeature {
         let flags: UInt8 = 0x00
         let tidHi = UInt8(taskID >> 8)
         let tidLo = UInt8(taskID & 0xFF)
-        try device.call(feature: SpecialButtonsFeature.featureID, function: 0x03, params: [cidHi, cidLo, flags, tidHi, tidLo], long: true)
+        try device.call(feature: SpecialButtonsFeature.featureID, function: 0x03, params: [cidHi, cidLo, flags, tidHi, tidLo])
     }
 }
