@@ -11,9 +11,11 @@ die Menüleisten-App `MX Menu` und das CLI `mxctl`.
 open "/Applications/MX Menu.app"
 ```
 
-Das Symbol zeigt den Batteriestand direkt in der Menüleiste; das Menü bietet DPI-Stufen,
-den Scrollrad-Modus und den Schalter für die DPI-Taste. Das Einstellungsfenster (⌘,)
-erlaubt zusätzlich die Wahl der Taste und der DPI-Stufen.
+Das Symbol zeigt den Batteriestand direkt in der Menüleiste. Das Menü bietet DPI-Stufen,
+den Scrollrad-Modus, den Schalter für die DPI-Taste und den Autostart. Das
+Einstellungsfenster (⌘,) erlaubt zusätzlich die Wahl der Taste und der DPI-Stufen.
+
+Die Werte werden einmal pro Minute aktualisiert.
 
 Die App installiert bewusst nach `/Applications`: macOS bindet die Freigabe der
 Eingabeüberwachung an Pfad und Signatur, ein wechselnder Pfad im Projektordner würde sie
@@ -124,6 +126,20 @@ Git-Historie von `Sources/hidraw`):
 
 9. **Diverted Tasten melden Press und Release getrennt.** Notification-Format:
    `FF <featureIndex> 00 <cid_hi> <cid_lo>` beim Druck, mit CID `0x0000` beim Loslassen.
+
+## MenuBarExtra in Menü-Darstellung
+
+Drei Einschränkungen, die in dieser App umgangen werden mussten — alle nur in der
+Menü-Darstellung, nicht bei `.menuBarExtraStyle(.window)`:
+
+* Das **Label wird nicht neu gezeichnet**, wenn sich ausschließlich sein Inhalt ändert. Der
+  Batteriestand blieb dadurch unsichtbar; eine vom Wert abhängige `.id(...)` erzwingt den
+  Neuaufbau.
+* **`SettingsLink` funktioniert nicht.** Der verbreitete Umweg über den undokumentierten
+  Selektor `showSettingsWindow:` hängt zudem von der macOS-Version ab. Stattdessen hält
+  `SettingsWindowController` ein eigenes `NSWindow`.
+* Es wird nur eine **begrenzte Auswahl an Views** gerendert (Text, Button, Toggle, Menu,
+  Divider) — komplexere Layouts erscheinen nicht.
 
 ## Aufbau
 
