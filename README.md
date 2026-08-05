@@ -223,6 +223,21 @@ der Feature-Liste als *technisch* markiert und beantwortet jede Leseabfrage mit 
 `0x1E00 EnableHiddenFeatures` — eine Schnittstelle für Logitechs Produktionstests, deren
 Byte-Layouts hier nur zu erraten wären.
 
+### Andere Logitech-Mäuse
+
+Die Feature-Erkennung läuft dynamisch über `Root.GetFeature`, fehlende Features werden
+übersprungen, und die Tastenauswahl kommt vom Gerät. Findet der Namensfilter kein
+"MX Master", fällt der Transport auf jedes Logitech-Gerät mit HID++-Collection zurück.
+Andere moderne MX-Modelle **an direkter Bluetooth-Verbindung** sollten damit ohne Änderung
+laufen.
+
+Nicht unterstützt:
+
+* **Unifying-/Bolt-Empfänger.** Der Geräteindex ist fest `0xFF`, was nur für
+  Direktverbindungen gilt; am Empfänger haben Geräte Index 1–6 und müssen erst über den
+  Empfänger aufgezählt werden.
+* **HID++ 1.0** (etwa MX Revolution, Performance MX). Anderes Protokoll ohne Root-Feature.
+
 ### Was die MX Master 3S nicht kann
 
 Die Feature-Liste des Geräts (36 Einträge, ermittelt über Feature `0x0001`) enthält weder

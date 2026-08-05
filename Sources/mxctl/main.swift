@@ -202,7 +202,9 @@ case "buttons":
                 } else {
                     remapNote = ""
                 }
-                print("CID \(hex(c.controlID))  TID \(hex(c.taskID))  flags=0x\(String(c.flags, radix: 16))  group=\(c.group)\(remapNote)")
+                let divertNote = c.isDivertable ? "" : "  (nicht umleitbar)"
+                print("CID \(hex(c.controlID))  \(c.name.padding(toLength: 22, withPad: " ", startingAt: 0))"
+                      + "TID \(hex(c.taskID))  flags=0x\(String(c.flags, radix: 16))\(divertNote)\(remapNote)")
             }
         } catch {
             fail("Tasten konnten nicht gelesen werden: \(error)")

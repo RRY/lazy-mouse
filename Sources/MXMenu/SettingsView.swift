@@ -4,16 +4,6 @@ import HIDPPKit
 struct SettingsView: View {
     @ObservedObject var model: MouseModel
 
-    /// Die programmierbaren Tasten der MX Master 3S. Die Control-IDs stammen aus
-    /// `mxctl buttons list`; nur umleitbare Tasten sind sinnvoll wählbar.
-    private static let selectableButtons: [(cid: Int, name: String)] = [
-        (0x00C3, "Daumentaste (Gesten)"),
-        (0x00C4, "Taste am Scrollrad (Rasterung)"),
-        (0x0053, "Zurück"),
-        (0x0056, "Vorwärts"),
-        (0x0052, "Mittlere Taste")
-    ]
-
     var body: some View {
         Form {
             if !model.connected {
@@ -66,7 +56,7 @@ struct SettingsView: View {
                 Toggle("Aktiviert", isOn: $model.cycleEnabled)
 
                 Picker("Taste", selection: $model.cycleButtonCID) {
-                    ForEach(Self.selectableButtons, id: \.cid) { button in
+                    ForEach(model.availableButtons, id: \.cid) { button in
                         Text(button.name).tag(button.cid)
                     }
                 }

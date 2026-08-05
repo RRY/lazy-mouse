@@ -15,6 +15,31 @@ public struct SpecialButtonsFeature {
         public let position: UInt8
         public let group: UInt8
         public let groupMask: UInt8
+
+        /// Nur umleitbare Tasten lassen sich für eigene Aktionen verwenden. Das Bit schützt
+        /// zugleich vor Unfug: Links- und Rechtsklick sind nicht umleitbar und tauchen
+        /// deshalb in einer danach gefilterten Auswahl gar nicht erst auf.
+        public var isDivertable: Bool { flags & 0x20 != 0 }
+
+        /// Sprechender Name, soweit die Control-ID bekannt ist.
+        public var name: String { SpecialButtonsFeature.name(forControlID: controlID) }
+    }
+
+    /// Namen der geläufigen Control-IDs. Unbekannte werden hexadezimal ausgewiesen, damit
+    /// die Auswahl auch bei fremden Modellen brauchbar bleibt.
+    public static func name(forControlID cid: UInt16) -> String {
+        switch cid {
+        case 0x0050: return "Linksklick"
+        case 0x0051: return "Rechtsklick"
+        case 0x0052: return "Mittlere Taste"
+        case 0x0053: return "Zurück"
+        case 0x0056: return "Vorwärts"
+        case 0x005B: return "Daumentaste"
+        case 0x00C3: return "Gestentaste (Daumen)"
+        case 0x00C4: return "Taste am Scrollrad"
+        case 0x00D7: return "Virtuelle Gestentaste"
+        default: return String(format: "Taste 0x%04X", cid)
+        }
     }
 
     private let device: HIDPPDevice

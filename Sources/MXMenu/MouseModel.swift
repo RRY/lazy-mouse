@@ -21,6 +21,9 @@ final class MouseModel: ObservableObject {
     @Published var horizontalInverted = false
     @Published var firmwareVersion: String?
     @Published var serialNumber: String?
+    /// Umleitbare Tasten, wie das Gerät sie meldet — nicht fest verdrahtet, damit die
+    /// Auswahl auch bei anderen Modellen stimmt.
+    @Published var availableButtons: [(cid: Int, name: String)] = []
     @Published var hostChannel: (channel: Int, total: Int)?
 
     // Einstellungen werden von Hand in UserDefaults gespiegelt statt über @AppStorage:
@@ -175,14 +178,26 @@ final class MouseModel: ObservableObject {
     /// Firmware und Seriennummer ändern sich nicht von selbst — einmal beim Verbinden zu
     /// lesen genügt, statt sie in jeden Minutentakt aufzunehmen.
     private func loadStaticInfo() {
-        worker.perform { device -> (String?, String?) in
+        worker.perform { device -> (String?, String?, [(cid: Int, name: String)]) in
             let info = DeviceInfoFeature(device: device)
-            return (try? info.firmwareVersion(), try? info.serialNumber())
+            let controls = (try? SpecialButtonsFeature(device: device).listControls()) ?? []
+            return (
+                try? info.firmwareVersion(),
+                try? info.serialNumber(),
+                controls.filter(\.isDivertable).map { (Int($0.controlID), $0.name) }
+            )
         } completion: { [weak self] result in
             guard case .success(let values) = result else { return }
             Task { @MainActor in
-                self?.firmwareVersion = values.0
-                self?.serialNumber = values.1
+                guard let self = self else { return }
+                self.firmwareVersion = values.0
+                self.serialNumber = values.1
+                self.availableButtons = values.2
+                // Die gespeicherte Taste kann von einem anderen Gerät stammen; dann auf die
+                // erste vorhandene ausweichen, sonst zeigte die Auswahl ins Leere.
+                if !values.2.isEmpty, !values.2.contains(where: { $0.cid == self.cycleButtonCID }) {
+                    self.cycleButtonCID = values.2[0].cid
+                }
             }
         }
     }
