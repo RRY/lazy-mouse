@@ -122,16 +122,10 @@ struct SettingsView: View {
                     set: { model.setHorizontalInverted($0) }
                 ))
 
-                Toggle("Feinauflösung (weicheres Scrollen)", isOn: Binding(
-                    get: { model.highResolution },
-                    set: { model.setHighResolution($0) }
-                ))
-
-                Text("Feinauflösung meldet 15 Schritte je Raste statt einem. Ob das weicher "
-                     + "scrollt oder nur schneller, hängt davon ab, wie die jeweilige App die "
-                     + "feineren Schritte verrechnet — einfach ausprobieren.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // Kein Schalter für die Feinauflösung: das Gerät kennt dafür nur 1 oder 15
+                // Schritte je Raste, und 15 wirkt in der Praxis wie 15-fache Geschwindigkeit
+                // statt wie feineres Scrollen. Zwischenstufen gibt es nicht (siehe README).
+                // Für Versuche bleibt `mxctl scroll hires`.
 
                 Text("Die Umkehrung wirkt im Gerät und kommt zur Scrollrichtung aus den "
                      + "Systemeinstellungen hinzu — beide zusammen heben sich auf.")

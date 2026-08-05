@@ -192,6 +192,27 @@ Ein über `0x0007` gesetzter Name taucht in der Bluetooth-Übersicht deshalb nic
 Einstellungsfenster bietet ihn aus diesem Grund nicht an — wer das Feld dennoch setzen
 will, nimmt `mxctl name`.
 
+### Scrollauflösung: nur 1 oder 15, nichts dazwischen
+
+Feature `0x2121` kennt ein Auflösungs-Bit; im Feinmodus meldet das Rad 15 Schritte je Raste
+statt einem (Multiplikator aus `GetWheelCapability`). Zwischenstufen gibt es nicht:
+
+* `0x2121` hat die Funktionen 0–4, danach `INVALID_FUNCTION_ID`. Ein Multiplikator als
+  zweites Byte von `SetWheelMode` wird quittiert, die Capability meldet aber unverändert 15.
+* Der dafür vorgesehene **Standard-HID Resolution Multiplier** (Generic Desktop, Usage
+  `0x48`) fehlt dem Gerät.
+* Das benachbarte, undokumentierte `0x2251` bietet nur Lesewerte.
+
+In der Praxis wirkt der Feinmodus dadurch nicht wie feineres, sondern wie 15-fach
+schnelleres Scrollen — macOS behandelt jeden Schritt als vollen Impuls. Das
+Einstellungsfenster bietet ihn deshalb nicht an; für Versuche bleibt `mxctl scroll hires`.
+
+Eine echte Zwischenstufe ginge nur, indem das Rad per `target`-Bit auf HID++ umgeleitet und
+die Scroll-Ereignisse selbst erzeugt werden. Das erfordert die Bedienungshilfen-Berechtigung
+und lässt das Rad tot zurück, sobald der Prozess nicht läuft. Werkzeuge wie Mac Mouse Fix
+gehen diesen Weg und lassen sich parallel betreiben: sie setzen an den Ereignissen an,
+dieses Projekt an der Gerätekonfiguration.
+
 ### Was die MX Master 3S nicht kann
 
 Die Feature-Liste des Geräts (36 Einträge, ermittelt über Feature `0x0001`) enthält weder

@@ -2,16 +2,14 @@ import Foundation
 import IOKit
 import IOKit.hid
 
-// Diagnose Phase 12: Lässt sich der Name ändern, den macOS anzeigt?
+// Diagnose Phase 13: Gibt es Zwischenstufen zwischen normaler und Feinauflösung?
 //
-// Der über Feature 0x0007 gesetzte "Friendly Name" taucht in der Bluetooth-Übersicht nicht
-// auf — dort steht weiter "MX Master 3S". Zu klären ist, ob Feature 0x0005 (DeviceNameType)
-// diesen Namen führt und ob es dafür einen Setter gibt.
+// 0x2121 meldet einen festen Multiplikator von 15, das Modus-Bit ist binär. Zu prüfen:
+//   a) Hat 0x2121 weitere Funktionen jenseits von 0..3 (etwa zum Setzen des Multiplikators)?
+//   b) Was verbirgt sich hinter dem in der Feature-Liste unbekannten 0x2251?
+//   c) Bietet die Standard-HID-Ebene einen Resolution Multiplier (Usage 0x48)?
 
 func hexBytes(_ b: [UInt8]) -> String { b.map { String(format: "%02X", $0) }.joined(separator: " ") }
-func ascii(_ b: [UInt8]) -> String {
-    String(bytes: b.filter { $0 >= 0x20 && $0 < 0x7F }, encoding: .ascii) ?? ""
-}
 
 let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
 IOHIDManagerSetDeviceMatching(manager, [kIOHIDVendorIDKey as String: 0x046D] as CFDictionary)
@@ -73,23 +71,49 @@ func featureIndex(_ id: UInt16) -> UInt8? {
     return p[0]
 }
 
-// 0x0005 DeviceNameType — führt es den von macOS angezeigten Namen?
-if let nameType = featureIndex(0x0005) {
-    print("=== 0x0005 DeviceNameType (Index \(nameType)) ===")
-    for function: UInt8 in 0...5 {
-        let r = request(nameType, function, function == 1 ? [0x00] : [])
+// a) Alle Funktionen von 0x2121 — Fehler 0x07 bedeutet: Funktion existiert nicht.
+if let wheel = featureIndex(0x2121) {
+    print("=== 0x2121 HiResWheel: Funktionsumfang ===")
+    for function: UInt8 in 0...7 {
+        let r = request(wheel, function)
         if let p = r.params {
-            print("  f\(function): \(hexBytes(Array(p.prefix(12))))  '\(ascii(Array(p.prefix(16))))'")
+            print("  f\(function): \(hexBytes(Array(p.prefix(6))))")
         } else {
-            // 0x07 = INVALID_FUNCTION_ID: Funktion existiert nicht
+            print("  f\(function): Fehler 0x\(String(format: "%02X", r.error ?? 0))")
+        }
+    }
+    // Versuch, den Multiplikator zu setzen: als zweites Byte hinter dem Modus.
+    print("  Versuch setWheelMode mit zweitem Byte (Multiplikator 5):")
+    let r = request(wheel, 0x02, [0x02, 0x05])
+    print("    -> \(r.error.map { "Fehler 0x\(String(format: "%02X", $0))" } ?? "OK \(hexBytes(Array((r.params ?? []).prefix(4))))")")
+    print("    Capability danach: \(hexBytes(Array((request(wheel, 0x00).params ?? []).prefix(4))))")
+    // Modus wieder auf normal.
+    _ = request(wheel, 0x02, [0x00])
+}
+
+// b) 0x2251 — in der Feature-Liste ohne Namen.
+if let unknown = featureIndex(0x2251) {
+    print("\n=== 0x2251 (unbekannt), Index \(unknown) ===")
+    for function: UInt8 in 0...3 {
+        let r = request(unknown, function)
+        if let p = r.params {
+            print("  f\(function): \(hexBytes(Array(p.prefix(10))))")
+        } else {
             print("  f\(function): Fehler 0x\(String(format: "%02X", r.error ?? 0))")
         }
     }
 }
 
-// 0x0007 zum Vergleich: dort steht der geänderte Name.
-if let friendly = featureIndex(0x0007) {
-    if let p = request(friendly, 0x01, [0x00]).params, p.count > 1 {
-        print("\n=== 0x0007 FriendlyName ===\n  '\(ascii(Array(p[1...])))'")
+// c) Standard-HID: Resolution Multiplier (Generic Desktop, Usage 0x48)?
+print("\n=== Standard-HID-Elemente: Resolution Multiplier (Usage 0x48) ===")
+let resolutionElements = elements.filter { IOHIDElementGetUsagePage($0) == 0x01 && IOHIDElementGetUsage($0) == 0x48 }
+if resolutionElements.isEmpty {
+    print("  keine — das Gerät bietet keinen HID-Resolution-Multiplier an")
+} else {
+    for el in resolutionElements {
+        print(String(format: "  cookie=%d type=%d reportID=0x%02X min=%d max=%d",
+                     IOHIDElementGetCookie(el), IOHIDElementGetType(el).rawValue,
+                     IOHIDElementGetReportID(el),
+                     IOHIDElementGetLogicalMin(el), IOHIDElementGetLogicalMax(el)))
     }
 }

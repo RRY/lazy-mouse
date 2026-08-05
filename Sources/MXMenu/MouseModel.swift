@@ -19,7 +19,6 @@ final class MouseModel: ObservableObject {
     @Published var scrollMode: SmartShiftFeature.Mode?
     @Published var verticalInverted = false
     @Published var horizontalInverted = false
-    @Published var highResolution = false
     @Published var firmwareVersion: String?
     @Published var serialNumber: String?
     @Published var hostChannel: (channel: Int, total: Int)?
@@ -130,7 +129,6 @@ final class MouseModel: ObservableObject {
                 dpi: try? AdjustableDPIFeature(device: device).currentDPI().current,
                 scrollMode: try? SmartShiftFeature(device: device).status().mode,
                 verticalInverted: (try? HiResWheelFeature(device: device).isInverted()) ?? false,
-                highResolution: (try? HiResWheelFeature(device: device).isHighResolution()) ?? false,
                 horizontalInverted: (try? ThumbwheelFeature(device: device).isInverted()) ?? false,
                 // Kann sich ändern, wenn am Gerät der Kanal umgeschaltet wird.
                 hostChannel: try? HostChannelFeature(device: device).current()
@@ -143,7 +141,6 @@ final class MouseModel: ObservableObject {
                 self.currentDPI = snapshot.dpi
                 self.scrollMode = snapshot.scrollMode
                 self.verticalInverted = snapshot.verticalInverted
-                self.highResolution = snapshot.highResolution
                 self.horizontalInverted = snapshot.horizontalInverted
                 self.hostChannel = snapshot.hostChannel
                 if let dpi = snapshot.dpi, let index = self.cycleSteps.firstIndex(of: dpi) {
@@ -171,19 +168,8 @@ final class MouseModel: ObservableObject {
         let dpi: Int?
         let scrollMode: SmartShiftFeature.Mode?
         let verticalInverted: Bool
-        let highResolution: Bool
         let horizontalInverted: Bool
         let hostChannel: (channel: Int, total: Int)?
-    }
-
-    func setHighResolution(_ enabled: Bool) {
-        worker.perform { device in
-            try HiResWheelFeature(device: device).setHighResolution(enabled)
-        } completion: { [weak self] result in
-            Task { @MainActor in
-                if case .success = result { self?.highResolution = enabled }
-            }
-        }
     }
 
     /// Firmware und Seriennummer ändern sich nicht von selbst — einmal beim Verbinden zu
