@@ -215,8 +215,9 @@ dieses Projekt an der Gerätekonfiguration.
 
 ### Die LED ist die Ladeanzeige
 
-Die grüne LED neben dem Daumenrad blinkt beim Laden und bleibt im Normalbetrieb dunkel
-(am Gerät nachgeprüft). Über HID++ ist sie nicht ansprechbar: `0x18A1 LEDControl` ist in
+Die grüne LED neben dem Daumenrad blinkt beim Laden und bleibt sonst dunkel — auch beim
+Wechsel des Easy-Switch-Kanals, für den das Gerät eine eigene Anzeige hat. Beides am Gerät
+nachgeprüft. Über HID++ ist sie nicht ansprechbar: `0x18A1 LEDControl` ist in
 der Feature-Liste als *technisch* markiert und beantwortet jede Leseabfrage mit Fehler
 `0x05` (`LOGITECH_INTERNAL`). Zugänglich wäre sie erst nach dem Freischalten über
 `0x1E00 EnableHiddenFeatures` — eine Schnittstelle für Logitechs Produktionstests, deren
