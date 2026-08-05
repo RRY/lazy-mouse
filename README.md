@@ -66,7 +66,7 @@ mxctl buttons list
 mxctl buttons divert <controlIdHex> <on|off>
 mxctl buttons reset <controlIdHex>
 mxctl buttons watch [sekunden]
-mxctl name [neuer name]       # Gerätename lesen oder setzen
+mxctl name [neuer name]       # interner Gerätename (nicht der in den BT-Einstellungen)
 mxctl dpi-cycle [--button <controlIdHex>] [--steps 1000,1600,2400]
 ```
 
@@ -176,6 +176,19 @@ Aufgefallen ist das erst, als zwei Lesevorgänge unmittelbar nacheinander einger
 Seriennummer und Name aus demselben Block korrekt gelesen wurden. `HIDPPWorker` führt
 deshalb eine eigene Warteschlange und entnimmt Aufträge nur auf oberster Ebene der
 Thread-Schleife, außerhalb jedes RunLoop-Aufrufs.
+
+### Zwei Gerätenamen, nur einer ist schreibbar
+
+Die Maus führt zwei getrennte Namensfelder:
+
+* **`0x0005` DeviceNameType** — `MX Master 3S`. Diesen Namen zeigt macOS in den
+  Bluetooth-Einstellungen. Das Feature hat **keinen Setter**: Funktionen 3 und höher
+  antworten mit `INVALID_FUNCTION_ID`. Über HID++ ist er nicht änderbar.
+* **`0x0007` DeviceFriendlyName** — frei beschreibbar, im Gerät gespeichert, von Logitechs
+  eigener Software zur Beschriftung genutzt. Das ist das Feld, das `mxctl name` und das
+  Einstellungsfenster ändern.
+
+Ein über `0x0007` gesetzter Name taucht in der Bluetooth-Übersicht deshalb nicht auf.
 
 ### Was die MX Master 3S nicht kann
 

@@ -60,12 +60,15 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Name") {
+            Section("Interner Gerätename") {
                 // Erst beim Bestätigen schreiben: sonst ginge pro Tastendruck ein
                 // Schreibvorgang ans Gerät.
-                TextField("Gerätename", text: $editedName)
+                TextField("Name", text: $editedName)
                     .onSubmit { model.setFriendlyName(editedName) }
-                Text(model.friendlyNameProblem ?? "Mit Return bestätigen. Nur ASCII-Zeichen.")
+                Text(model.friendlyNameProblem
+                     ?? "Mit Return bestätigen, nur ASCII-Zeichen. Dieses Feld ist im Gerät "
+                     + "gespeichert und erscheint nicht in den Bluetooth-Einstellungen: den dort "
+                     + "gezeigten Namen hält die Maus in einem separaten, schreibgeschützten Feld.")
                     .font(.caption)
                     .foregroundStyle(model.friendlyNameProblem == nil ? Color.secondary : Color.orange)
             }
