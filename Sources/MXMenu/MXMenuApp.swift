@@ -23,10 +23,8 @@ struct MXMenuApp: App {
             // Die wechselnde Identität erzwingt den Neuaufbau.
             .id("\(model.connected)-\(model.batteryPercent ?? -1)")
         }
-
-        Settings {
-            SettingsView(model: model)
-        }
+        // Kein Settings-Szene: das Fenster verwaltet SettingsWindowController, weil es sich
+        // aus einer MenuBarExtra in Menü-Darstellung sonst nicht zuverlässig öffnen lässt.
     }
 }
 
@@ -92,11 +90,7 @@ struct MenuContent: View {
 
         Divider()
         Button("Einstellungen …") {
-            // SettingsLink funktioniert in der Menü-Darstellung von MenuBarExtra nicht;
-            // die Systemaktion öffnet die Settings-Szene dagegen zuverlässig. Ohne
-            // vorheriges activate erscheint das Fenster hinter anderen Apps.
-            NSApp.activate(ignoringOtherApps: true)
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            SettingsWindowController.shared.show(model: model)
         }
         .keyboardShortcut(",", modifiers: .command)
         Button("Beenden") {
