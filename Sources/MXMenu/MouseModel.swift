@@ -36,6 +36,22 @@ final class MouseModel: ObservableObject {
         didSet { defaults.set(cycleStepsRaw, forKey: Keys.cycleSteps) }
     }
 
+    /// Autostart. Der wahre Zustand liegt im System, nicht in UserDefaults — deshalb wird
+    /// nach jedem Schreiben zurückgelesen, damit eine abgelehnte Änderung sichtbar wird.
+    @Published var launchAtLogin: Bool = LoginItem.isEnabled
+    @Published var launchAtLoginProblem: String?
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        if let error = LoginItem.setEnabled(enabled) {
+            launchAtLoginProblem = error
+        } else if enabled && LoginItem.isBlockedBySystem {
+            launchAtLoginProblem = "In den Systemeinstellungen unter Anmeldeobjekte freigeben."
+        } else {
+            launchAtLoginProblem = nil
+        }
+        launchAtLogin = LoginItem.isEnabled
+    }
+
     var cycleSteps: [Int] {
         let parsed = cycleStepsRaw.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
         return parsed.count >= 2 ? parsed : [1000, 1600, 2400]
@@ -67,9 +83,7 @@ final class MouseModel: ObservableObject {
     }
 
     func connect() {
-        let result = worker.start()
-        FileHandle.standardError.write("MXMenu: worker.start -> \(result)\n".data(using: .utf8)!)
-        switch result {
+        switch worker.start() {
         case .connected(let name):
             productName = name
             connected = true
@@ -97,7 +111,6 @@ final class MouseModel: ObservableObject {
             let scroll = try? SmartShiftFeature(device: device).status()
             return (battery?.percentage, battery?.chargingStatus == .charging, dpi?.current, scroll?.mode)
         } completion: { [weak self] result in
-            FileHandle.standardError.write("MXMenu: refresh -> \(result)\n".data(using: .utf8)!)
             guard let self = self, case .success(let values) = result else { return }
             Task { @MainActor in
                 self.batteryPercent = values.0

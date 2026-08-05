@@ -48,6 +48,22 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Start") {
+                Toggle("Beim Anmelden starten", isOn: Binding(
+                    get: { model.launchAtLogin },
+                    set: { model.setLaunchAtLogin($0) }
+                ))
+                if let problem = model.launchAtLoginProblem {
+                    HStack(spacing: 6) {
+                        Text(problem)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Öffnen") { LoginItem.openLoginItemsSettings() }
+                            .buttonStyle(.link)
+                    }
+                }
+            }
+
             Section("Scrollrad") {
                 Picker("Modus", selection: Binding(
                     get: { model.scrollMode ?? .ratchet },
