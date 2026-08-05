@@ -29,6 +29,8 @@ func printUsage() {
       mxctl dpi set <wert>
       mxctl scroll get
       mxctl scroll set <ratchet|freespin|auto> [--threshold N]
+      mxctl scroll hires <on|off>
+      mxctl scroll invert <wheel|thumb> <on|off>
       mxctl buttons list
       mxctl buttons divert <controlIdHex> <on|off>
       mxctl buttons reset <controlIdHex>
@@ -124,8 +126,40 @@ case "scroll":
         do {
             let status = try smartShift.status()
             print("Modus: \(status.mode), Auto-Schwelle: \(status.autoDisengageThreshold)")
+            let wheel = HiResWheelFeature(device: device)
+            if let inverted = try? wheel.isInverted(), let hires = try? wheel.isHighResolution() {
+                print("Vertikal umgekehrt: \(inverted ? "ja" : "nein"), Feinauflösung: \(hires ? "ein" : "aus")")
+            }
+            if let thumb = try? ThumbwheelFeature(device: device).isInverted() {
+                print("Daumenrad umgekehrt: \(thumb ? "ja" : "nein")")
+            }
         } catch {
             fail("Scroll-Status konnte nicht gelesen werden: \(error)")
+        }
+    case "hires":
+        guard args.count >= 3, ["on", "off"].contains(args[2]) else {
+            fail("Nutzung: mxctl scroll hires <on|off>")
+        }
+        do {
+            try HiResWheelFeature(device: device).setHighResolution(args[2] == "on")
+            print("Feinauflösung \(args[2] == "on" ? "eingeschaltet" : "ausgeschaltet").")
+        } catch {
+            fail("Feinauflösung konnte nicht gesetzt werden: \(error)")
+        }
+    case "invert":
+        guard args.count >= 4, ["wheel", "thumb"].contains(args[2]), ["on", "off"].contains(args[3]) else {
+            fail("Nutzung: mxctl scroll invert <wheel|thumb> <on|off>")
+        }
+        do {
+            let enabled = args[3] == "on"
+            if args[2] == "wheel" {
+                try HiResWheelFeature(device: device).setInverted(enabled)
+            } else {
+                try ThumbwheelFeature(device: device).setInverted(enabled)
+            }
+            print("Umkehrung für \(args[2]) \(enabled ? "ein" : "aus").")
+        } catch {
+            fail("Umkehrung konnte nicht gesetzt werden: \(error)")
         }
     case "set":
         guard args.count >= 3 else { fail("Nutzung: mxctl scroll set <ratchet|freespin|auto> [--threshold N]") }

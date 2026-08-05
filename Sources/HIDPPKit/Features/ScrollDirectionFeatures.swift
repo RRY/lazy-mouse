@@ -34,13 +34,34 @@ public struct HiResWheelFeature {
         try modeFlags() & Flag.invert != 0
     }
 
-    /// Function 0x02: SetWheelMode
-    public func setInverted(_ inverted: Bool) throws {
+    /// Feinauflösung: das Rad meldet je Raste `multiplier` Schritte statt einem, was
+    /// feinstufigeres und damit weicheres Scrollen ergibt.
+    public func isHighResolution() throws -> Bool {
+        try modeFlags() & Flag.resolution != 0
+    }
+
+    /// Function 0x00: GetWheelCapability — Multiplikator zwischen Fein- und Normalauflösung.
+    public func resolutionMultiplier() throws -> Int {
+        let response = try device.call(feature: HiResWheelFeature.featureID, function: 0x00)
+        guard let multiplier = response.params.first else { throw HIDPPError.malformedResponse }
+        return Int(multiplier)
+    }
+
+    /// Function 0x02: SetWheelMode. Ändert gezielt einzelne Bits und erhält die übrigen.
+    private func setFlag(_ flag: UInt8, _ enabled: Bool) throws {
         var flags = try modeFlags()
-        flags = inverted ? (flags | Flag.invert) : (flags & ~Flag.invert)
+        flags = enabled ? (flags | flag) : (flags & ~flag)
         // Sicherheitsnetz: dieses Bit würde das Rad stumm schalten und gehört nie gesetzt.
         flags &= ~Flag.target
         try device.call(feature: HiResWheelFeature.featureID, function: 0x02, params: [flags])
+    }
+
+    public func setInverted(_ inverted: Bool) throws {
+        try setFlag(Flag.invert, inverted)
+    }
+
+    public func setHighResolution(_ enabled: Bool) throws {
+        try setFlag(Flag.resolution, enabled)
     }
 }
 
