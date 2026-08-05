@@ -32,19 +32,10 @@ struct MenuContent: View {
     @ObservedObject var model: MouseModel
 
     var body: some View {
+        // Das Menü enthält bewusst nur Aktionen: reiner Text wird darin als deaktivierter
+        // Eintrag gezeichnet und ist dadurch schlecht lesbar. Batterie und DPI stehen im
+        // Symbol beziehungsweise im Einstellungsfenster.
         if model.connected {
-            // Als Button statt als Text: reiner Text wird im Menü als deaktivierter
-            // Eintrag gezeichnet und damit grau — unabhängig von der gesetzten Textfarbe.
-            // Die Zeilen lösen deshalb das Neueinlesen aus, statt nur Attrappe zu sein.
-            Button(model.productName) { model.refresh() }
-            if let percent = model.batteryPercent {
-                Button("Batterie: \(percent)%\(model.charging ? " (lädt)" : "")") { model.refresh() }
-            }
-            if let dpi = model.currentDPI {
-                Button("DPI: \(dpi)") { model.refresh() }
-            }
-            Divider()
-
             Menu("DPI") {
                 ForEach(model.cycleSteps, id: \.self) { step in
                     Button {
@@ -71,15 +62,16 @@ struct MenuContent: View {
             Toggle("DPI-Taste aktiv", isOn: $model.cycleEnabled)
         } else if model.permissionDenied {
             // Ohne diese Berechtigung liefert IOHIDManagerOpen kIOReturnNotPermitted.
-            // Ein erneuter Verbindungsversuch scheitert zwangsläufig, deshalb führt die
-            // Zeile direkt zur einzigen Stelle, an der sich das beheben lässt.
-            Button("Kein Zugriff — Eingabeüberwachung öffnen …") {
+            // Ein erneuter Verbindungsversuch scheitert zwangsläufig, deshalb führt der
+            // Eintrag direkt zur einzigen Stelle, an der sich das beheben lässt.
+            // Woran es hakt, steht im Einstellungsfenster.
+            Button("Eingabeüberwachung öffnen …") {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
                     NSWorkspace.shared.open(url)
                 }
             }
         } else {
-            Button("\(model.statusMessage) — erneut verbinden") { model.connect() }
+            Button("Erneut verbinden") { model.connect() }
         }
 
         Divider()

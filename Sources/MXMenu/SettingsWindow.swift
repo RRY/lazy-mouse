@@ -27,6 +27,9 @@ final class SettingsWindowController {
             created.center()
             window = created
         }
+        // Das Fenster ist die einzige Stelle, an der Batterie und DPI abzulesen sind —
+        // im Minutentakt aktualisierte Werte wären hier womöglich veraltet.
+        model.refresh()
         // Eine reine Menüleisten-App ist nicht aktiv; ohne das erschiene das Fenster hinten.
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
