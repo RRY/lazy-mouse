@@ -65,7 +65,7 @@ public final class HIDPPDevice {
     }
 
     /// Lauscht auf Notifications des Geräts, etwa Tastendrücke umgeleiteter Tasten.
-    public func listen(duration: TimeInterval, onNotification: ([UInt8]) -> Void) {
-        transport.listen(duration: duration, onNotification: onNotification)
+    public func listen(duration: TimeInterval, shouldStop: () -> Bool = { false }, onNotification: ([UInt8]) -> Void) {
+        transport.listen(duration: duration, shouldStop: shouldStop, onNotification: onNotification)
     }
 }

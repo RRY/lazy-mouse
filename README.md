@@ -12,7 +12,23 @@ mxctl buttons list
 mxctl buttons divert <controlIdHex> <on|off>
 mxctl buttons reset <controlIdHex>
 mxctl buttons watch [sekunden]
+mxctl dpi-cycle [--button <controlIdHex>] [--steps 1000,1600,2400]
 ```
+
+## DPI-Umschaltung per Taste
+
+`mxctl dpi-cycle` leitet eine Taste um und schaltet bei jedem Druck zur nächsten
+DPI-Stufe. Vorbelegt ist `0x00C4` — die kleine Taste oberhalb des Scrollrads:
+
+```
+mxctl dpi-cycle --steps 800,1600,3200
+```
+
+Läuft, bis es mit Strg-C beendet wird; dabei werden Taste und ursprünglicher DPI-Wert
+zurückgesetzt. Solange es läuft, entfällt die native Funktion der Taste — bei `0x00C4`
+ist das die Umschaltung zwischen gerastertem und freilaufendem Scrollrad. Nach dem
+Beenden schaltet die Taste wieder wie gewohnt, was das Rad in den zuletzt per Hand
+gewählten Zustand bringen kann.
 
 ## Voraussetzung: Eingabeüberwachung
 
@@ -101,9 +117,8 @@ Alle Befehle sind gegen echte Hardware verifiziert:
 | SmartShift | gelesen und geschrieben: ratchet → freespin → ratchet |
 | Tasten-Enumeration | 8 Controls inkl. Gruppen und Gruppenmasken |
 | Divert | Umleitung gesetzt, Press/Release-Notifications empfangen, zurückgesetzt |
+| `dpi-cycle` | vier Tastendrücke schalteten 1000 → 1600 → 2400 → 1000 → 1600 |
 
 Nicht möglich: On-Device-Remapping (siehe Punkt 8 oben) — die Hardware unterstützt es nicht.
-
-Nicht Teil dieses Tools: ein Daemon, der umgeleitete Tastendrücke in macOS-Aktionen
-übersetzt. `mxctl buttons watch` zeigt, dass die dafür nötigen Ereignisse ankommen; die
-Zuordnung zu Aktionen wäre der nächste Ausbauschritt.
+Tastenaktionen brauchen deshalb einen laufenden Prozess; `dpi-cycle` ist die erste
+Umsetzung dieses Musters und lässt sich als Vorlage für weitere Aktionen verwenden.

@@ -33,10 +33,11 @@ func printUsage() {
       mxctl buttons divert <controlIdHex> <on|off>
       mxctl buttons reset <controlIdHex>
       mxctl buttons watch [sekunden]
+      mxctl dpi-cycle [--button <controlIdHex>] [--steps 1000,1600,2400]
 
     Hinweis: Die MX Master 3S kann Tasten nicht geräteseitig umbelegen. Eine umgeleitete
     ("diverted") Taste löst ihre native Aktion nicht mehr aus, sondern meldet den Druck an
-    den Host — die eigentliche Aktion müsste ein dauerhaft laufender Prozess ausführen.
+    den Host — die eigentliche Aktion führt dann ein laufender Prozess aus, siehe dpi-cycle.
     """)
 }
 
@@ -200,6 +201,71 @@ case "buttons":
     default:
         printUsage(); exit(1)
     }
+
+case "dpi-cycle":
+    // Standard: die kleine Taste oberhalb des Scrollrads (nativ SmartShift-Umschaltung).
+    var buttonCID: UInt16 = 0x00C4
+    var steps = [1000, 1600, 2400]
+    if let idx = args.firstIndex(of: "--button"), args.count > idx + 1,
+       let parsed = UInt16(args[idx + 1].replacingOccurrences(of: "0x", with: ""), radix: 16) {
+        buttonCID = parsed
+    }
+    if let idx = args.firstIndex(of: "--steps"), args.count > idx + 1 {
+        let parsed = args[idx + 1].split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+        if parsed.count >= 2 { steps = parsed } else { fail("--steps braucht mindestens zwei Werte, z. B. 1000,1600,2400") }
+    }
+
+    let device = connectedDevice()
+    let dpiFeature = AdjustableDPIFeature(device: device)
+    let buttons = SpecialButtonsFeature(device: device)
+    let buttonsIndex = try? device.featureIndex(for: SpecialButtonsFeature.featureID)
+
+    let originalDPI = (try? dpiFeature.currentDPI().current) ?? steps[0]
+    // Beim nächsten Druck auf den Schritt wechseln, der auf den aktuellen Wert folgt.
+    var stepIndex = steps.firstIndex(of: originalDPI) ?? 0
+
+    do {
+        try buttons.setDivert(controlID: buttonCID, enabled: true)
+    } catch {
+        fail("Taste konnte nicht umgeleitet werden: \(error)")
+    }
+
+    // Aufräumen ist Pflicht: eine umgeleitete Taste bleibt sonst dauerhaft wirkungslos.
+    func cleanup() {
+        try? buttons.resetReporting(controlID: buttonCID)
+        try? dpiFeature.setDPI(originalDPI)
+    }
+
+    var stopping = false
+    signal(SIGINT, SIG_IGN)
+    signal(SIGTERM, SIG_IGN)
+    let sigintSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+    let sigtermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+    sigintSource.setEventHandler { stopping = true }
+    sigtermSource.setEventHandler { stopping = true }
+    sigintSource.resume()
+    sigtermSource.resume()
+
+    print(String(format: "DPI-Umschaltung aktiv auf Taste 0x%04X. Stufen: %@ (aktuell %d).",
+                 buttonCID, steps.map(String.init).joined(separator: ", "), originalDPI))
+    print("Beenden mit Strg-C — die Taste wird dabei zurückgesetzt.")
+
+    device.listen(duration: .greatestFiniteMagnitude, shouldStop: { stopping }) { body in
+        guard let buttonsIndex = buttonsIndex, body.count >= 5, body[1] == buttonsIndex else { return }
+        let cid = (UInt16(body[3]) << 8) | UInt16(body[4])
+        // Nur der Druck schaltet; das Loslassen meldet CID 0 und wird übergangen.
+        guard cid == buttonCID else { return }
+        stepIndex = (stepIndex + 1) % steps.count
+        do {
+            try dpiFeature.setDPI(steps[stepIndex])
+            print("  DPI \(steps[stepIndex])")
+        } catch {
+            print("  DPI-Wechsel fehlgeschlagen: \(error)")
+        }
+    }
+
+    cleanup()
+    print("Beendet, Taste und DPI zurückgesetzt.")
 
 default:
     printUsage()

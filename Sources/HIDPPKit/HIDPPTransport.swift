@@ -187,12 +187,13 @@ public final class HIDPPTransport {
     }
 
     /// Lauscht auf Notifications des Geräts (Software-ID 0) — etwa Tastendrücke einer
-    /// per `divert` umgeleiteten Taste. Blockiert bis zum Ablauf von `duration`.
-    public func listen(duration: TimeInterval, onNotification: ([UInt8]) -> Void) {
+    /// per `divert` umgeleiteten Taste. Blockiert bis `duration` abgelaufen ist oder
+    /// `shouldStop` true liefert.
+    public func listen(duration: TimeInterval, shouldStop: () -> Bool = { false }, onNotification: ([UInt8]) -> Void) {
         receivedBodies.removeAll()
         var delivered = 0
         let deadline = Date().addingTimeInterval(duration)
-        while Date() < deadline {
+        while Date() < deadline, !shouldStop() {
             CFRunLoopRunInMode(.defaultMode, 0.05, true)
             while delivered < receivedBodies.count {
                 let body = receivedBodies[delivered]
