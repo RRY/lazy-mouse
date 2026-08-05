@@ -10,6 +10,9 @@ final class MouseModel: ObservableObject {
     @Published var productName: String = "—"
     @Published var connected = false
     @Published var statusMessage = "Nicht verbunden"
+    /// Steuert, ob ein erneuter Verbindungsversuch überhaupt Sinn ergibt: eine fehlende
+    /// Berechtigung kann nur der Nutzer in den Systemeinstellungen beheben.
+    @Published var permissionDenied = false
     @Published var batteryPercent: Int?
     @Published var charging = false
     @Published var currentDPI: Int?
@@ -87,19 +90,26 @@ final class MouseModel: ObservableObject {
         case .connected(let name):
             productName = name
             connected = true
+            permissionDenied = false
             statusMessage = "Verbunden"
             refresh()
             // Batterie ändert sich träge; ein Intervall von einer Minute reicht.
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
                 Task { @MainActor in self?.refresh() }
             }
-        case .failed(let message):
+        case .failed(let error):
             connected = false
-            statusMessage = message.contains("nicht gefunden")
-                ? "Maus nicht gefunden — eingeschaltet und gekoppelt?"
-                : "Kein Zugriff — Eingabeüberwachung erlaubt?"
+            permissionDenied = (error as? HIDPPError)?.isPermissionDenied ?? false
+            if permissionDenied {
+                statusMessage = "Kein Zugriff — Eingabeüberwachung nicht erlaubt"
+            } else if case HIDPPError.deviceNotFound = error {
+                statusMessage = "Maus nicht gefunden — eingeschaltet und gekoppelt?"
+            } else {
+                statusMessage = "\(error)"
+            }
         case .idle:
             connected = false
+            permissionDenied = false
             statusMessage = "Nicht verbunden"
         }
     }

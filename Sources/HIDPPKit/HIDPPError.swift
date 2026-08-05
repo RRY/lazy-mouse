@@ -1,4 +1,5 @@
 import Foundation
+import IOKit
 
 public enum HIDPPError: Error, CustomStringConvertible {
     case managerOpenFailed(IOReturn)
@@ -9,6 +10,17 @@ public enum HIDPPError: Error, CustomStringConvertible {
     case timeout
     case protocolError(featureIndex: UInt8, function: UInt8, errorCode: UInt8)
     case malformedResponse
+
+    /// Fehlende Berechtigung "Eingabeüberwachung". Sie lässt sich nur vom Nutzer in den
+    /// Systemeinstellungen erteilen — ein erneuter Verbindungsversuch bringt vorher nichts.
+    public var isPermissionDenied: Bool {
+        switch self {
+        case .managerOpenFailed(let code), .deviceOpenFailed(let code):
+            return code == kIOReturnNotPermitted
+        default:
+            return false
+        }
+    }
 
     public var description: String {
         switch self {

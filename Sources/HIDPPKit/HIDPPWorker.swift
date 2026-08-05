@@ -11,7 +11,9 @@ public final class HIDPPWorker {
     public enum State {
         case idle
         case connected(productName: String)
-        case failed(String)
+        /// Trägt den Fehler selbst, damit Aufrufer etwa eine fehlende Berechtigung von
+        /// einem nicht gefundenen Gerät unterscheiden können, ohne Texte zu vergleichen.
+        case failed(Error)
     }
 
     private var thread: Thread?
@@ -51,7 +53,7 @@ public final class HIDPPWorker {
                 self.device = HIDPPDevice(transport: transport)
                 self.state = .connected(productName: name)
             } catch {
-                self.state = .failed("\(error)")
+                self.state = .failed(error)
             }
             self.startupSemaphore.signal()
 

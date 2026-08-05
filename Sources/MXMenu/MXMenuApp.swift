@@ -68,20 +68,27 @@ struct MenuContent: View {
             }
 
             Toggle("DPI-Taste aktiv", isOn: $model.cycleEnabled)
-
-            Divider()
-            Button("Aktualisieren") { model.refresh() }
         } else {
             Text(model.statusMessage)
-            Button("Eingabeüberwachung öffnen …") {
+            if model.permissionDenied {
                 // Ohne diese Berechtigung liefert IOHIDManagerOpen kIOReturnNotPermitted.
-                // Die App muss nach dem Erteilen neu gestartet werden.
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
-                    NSWorkspace.shared.open(url)
+                // Ein erneuter Versuch scheitert zwangsläufig, deshalb wird er hier nicht
+                // angeboten; die App muss nach dem Erteilen ohnehin neu starten.
+                Button("Eingabeüberwachung öffnen …") {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
+                        NSWorkspace.shared.open(url)
+                    }
                 }
+            } else {
+                Button("Erneut verbinden") { model.connect() }
             }
-            Button("Erneut verbinden") { model.connect() }
         }
+
+        Divider()
+        Toggle("Beim Anmelden starten", isOn: Binding(
+            get: { model.launchAtLogin },
+            set: { model.setLaunchAtLogin($0) }
+        ))
 
         Divider()
         Button("Einstellungen …") {
