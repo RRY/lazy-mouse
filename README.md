@@ -213,6 +213,15 @@ und lässt das Rad tot zurück, sobald der Prozess nicht läuft. Werkzeuge wie M
 gehen diesen Weg und lassen sich parallel betreiben: sie setzen an den Ereignissen an,
 dieses Projekt an der Gerätekonfiguration.
 
+### Die LED ist die Ladeanzeige
+
+Die grüne LED neben dem Daumenrad blinkt beim Laden und bleibt im Normalbetrieb dunkel
+(am Gerät nachgeprüft). Über HID++ ist sie nicht ansprechbar: `0x18A1 LEDControl` ist in
+der Feature-Liste als *technisch* markiert und beantwortet jede Leseabfrage mit Fehler
+`0x05` (`LOGITECH_INTERNAL`). Zugänglich wäre sie erst nach dem Freischalten über
+`0x1E00 EnableHiddenFeatures` — eine Schnittstelle für Logitechs Produktionstests, deren
+Byte-Layouts hier nur zu erraten wären.
+
 ### Was die MX Master 3S nicht kann
 
 Die Feature-Liste des Geräts (36 Einträge, ermittelt über Feature `0x0001`) enthält weder

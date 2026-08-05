@@ -2,12 +2,12 @@ import Foundation
 import IOKit
 import IOKit.hid
 
-// Diagnose Phase 13: Gibt es Zwischenstufen zwischen normaler und Feinauflösung?
+// Diagnose Phase 14: Wofür ist die LED? Nur lesende Abfragen.
 //
-// 0x2121 meldet einen festen Multiplikator von 15, das Modus-Bit ist binär. Zu prüfen:
-//   a) Hat 0x2121 weitere Funktionen jenseits von 0..3 (etwa zum Setzen des Multiplikators)?
-//   b) Was verbirgt sich hinter dem in der Feature-Liste unbekannten 0x2251?
-//   c) Bietet die Standard-HID-Ebene einen Resolution Multiplier (Usage 0x48)?
+// 0x18A1 LEDControl ist in der Feature-Liste als "technisch" markiert. Gesetzt wird hier
+// bewusst nichts — nur Funktionen ohne Parameter, um zu sehen, was das Gerät über seine
+// LEDs meldet. Ergänzend der Batteriestatus, weil eine Statusanzeige typischerweise daran
+// hängt.
 
 func hexBytes(_ b: [UInt8]) -> String { b.map { String(format: "%02X", $0) }.joined(separator: " ") }
 
@@ -71,49 +71,35 @@ func featureIndex(_ id: UInt16) -> UInt8? {
     return p[0]
 }
 
-// a) Alle Funktionen von 0x2121 — Fehler 0x07 bedeutet: Funktion existiert nicht.
-if let wheel = featureIndex(0x2121) {
-    print("=== 0x2121 HiResWheel: Funktionsumfang ===")
-    for function: UInt8 in 0...7 {
-        let r = request(wheel, function)
-        if let p = r.params {
-            print("  f\(function): \(hexBytes(Array(p.prefix(6))))")
-        } else {
-            print("  f\(function): Fehler 0x\(String(format: "%02X", r.error ?? 0))")
-        }
-    }
-    // Versuch, den Multiplikator zu setzen: als zweites Byte hinter dem Modus.
-    print("  Versuch setWheelMode mit zweitem Byte (Multiplikator 5):")
-    let r = request(wheel, 0x02, [0x02, 0x05])
-    print("    -> \(r.error.map { "Fehler 0x\(String(format: "%02X", $0))" } ?? "OK \(hexBytes(Array((r.params ?? []).prefix(4))))")")
-    print("    Capability danach: \(hexBytes(Array((request(wheel, 0x00).params ?? []).prefix(4))))")
-    // Modus wieder auf normal.
-    _ = request(wheel, 0x02, [0x00])
-}
-
-// b) 0x2251 — in der Feature-Liste ohne Namen.
-if let unknown = featureIndex(0x2251) {
-    print("\n=== 0x2251 (unbekannt), Index \(unknown) ===")
+if let led = featureIndex(0x18A1) {
+    print("=== 0x18A1 LEDControl (Index \(led)) — nur Leseabfragen ===")
     for function: UInt8 in 0...3 {
-        let r = request(unknown, function)
+        let r = request(led, function)
         if let p = r.params {
             print("  f\(function): \(hexBytes(Array(p.prefix(10))))")
         } else {
+            // 0x07 = INVALID_FUNCTION_ID, 0x09 = UNSUPPORTED, 0x05 = LOGITECH_INTERNAL
             print("  f\(function): Fehler 0x\(String(format: "%02X", r.error ?? 0))")
+        }
+    }
+    // Je LED-Index die Info abfragen, falls f0 eine Anzahl meldet.
+    if let count = request(led, 0x00).params?.first, count > 0, count < 8 {
+        print("  gemeldete LED-Anzahl: \(count)")
+        for index in 0..<count {
+            if let p = request(led, 0x01, [index]).params {
+                print("    LED \(index): \(hexBytes(Array(p.prefix(8))))")
+            }
         }
     }
 }
 
-// c) Standard-HID: Resolution Multiplier (Generic Desktop, Usage 0x48)?
-print("\n=== Standard-HID-Elemente: Resolution Multiplier (Usage 0x48) ===")
-let resolutionElements = elements.filter { IOHIDElementGetUsagePage($0) == 0x01 && IOHIDElementGetUsage($0) == 0x48 }
-if resolutionElements.isEmpty {
-    print("  keine — das Gerät bietet keinen HID-Resolution-Multiplier an")
-} else {
-    for el in resolutionElements {
-        print(String(format: "  cookie=%d type=%d reportID=0x%02X min=%d max=%d",
-                     IOHIDElementGetCookie(el), IOHIDElementGetType(el).rawValue,
-                     IOHIDElementGetReportID(el),
-                     IOHIDElementGetLogicalMin(el), IOHIDElementGetLogicalMax(el)))
+if let battery = featureIndex(0x1004) {
+    print("\n=== 0x1004 UnifiedBattery ===")
+    if let p = request(battery, 0x00).params {
+        print("  Capability: \(hexBytes(Array(p.prefix(6))))")
+    }
+    if let p = request(battery, 0x01).params {
+        print("  Status:     \(hexBytes(Array(p.prefix(6))))")
+        print("    Ladung=\(p[0])%  Zustand=\(p[2])  externe Versorgung=\((p.count > 3 ? p[3] : 0) & 1)")
     }
 }
