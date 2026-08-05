@@ -21,9 +21,16 @@ final class MouseModel: ObservableObject {
     @Published var horizontalInverted = false
     @Published var firmwareVersion: String?
     @Published var serialNumber: String?
-    /// Umleitbare Tasten, wie das Gerät sie meldet — nicht fest verdrahtet, damit die
-    /// Auswahl auch bei anderen Modellen stimmt.
+    /// Tasten, die für die DPI-Umschaltung angeboten werden. Gelesen wird vom Gerät, damit
+    /// die Auswahl auch bei anderen Modellen stimmt.
     @Published var availableButtons: [(cid: Int, name: String)] = []
+
+    /// Nur Tasten, deren angestammte Funktion entbehrlich ist. Zurück, Vorwärts und die
+    /// mittlere Taste sind in ihrer Standardbelegung nützlicher als eine DPI-Umschaltung,
+    /// und die virtuelle Gestentaste ist gar keine Taste. Findet sich auf einem fremden
+    /// Modell keine davon, bleibt es bei allen umleitbaren — sonst wäre die Funktion dort
+    /// ohne Not tot.
+    private static let preferredCycleButtons: Set<Int> = [0x00C3, 0x00C4]
     @Published var hostChannel: (channel: Int, total: Int)?
 
     // Einstellungen werden von Hand in UserDefaults gespiegelt statt über @AppStorage:
@@ -181,10 +188,12 @@ final class MouseModel: ObservableObject {
         worker.perform { device -> (String?, String?, [(cid: Int, name: String)]) in
             let info = DeviceInfoFeature(device: device)
             let controls = (try? SpecialButtonsFeature(device: device).listControls()) ?? []
+            let divertable = controls.filter(\.isDivertable).map { (cid: Int($0.controlID), name: $0.name) }
+            let preferred = divertable.filter { MouseModel.preferredCycleButtons.contains($0.cid) }
             return (
                 try? info.firmwareVersion(),
                 try? info.serialNumber(),
-                controls.filter(\.isDivertable).map { (Int($0.controlID), $0.name) }
+                preferred.isEmpty ? divertable : preferred
             )
         } completion: { [weak self] result in
             guard case .success(let values) = result else { return }

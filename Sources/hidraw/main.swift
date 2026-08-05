@@ -2,12 +2,12 @@ import Foundation
 import IOKit
 import IOKit.hid
 
-// Diagnose Phase 14: Wofür ist die LED? Nur lesende Abfragen.
+// Diagnose Phase 15: Liefert das virtuelle Gesten-Control rohe Koordinaten?
 //
-// 0x18A1 LEDControl ist in der Feature-Liste als "technisch" markiert. Gesetzt wird hier
-// bewusst nichts — nur Funktionen ohne Parameter, um zu sehen, was das Gerät über seine
-// LEDs meldet. Ergänzend der Batteriestatus, weil eine Statusanzeige typischerweise daran
-// hängt.
+// Erster Versuch scheiterte, weil nur das Divert-Bit gesetzt war. Für rohe X/Y-Meldungen
+// braucht SetCidReporting zusätzlich das rawXY-Bit (Wert 0x10, gültig ab 0x20).
+// Gesetzt wird es hier auf dem virtuellen Control 0x00D7 und auf der physischen
+// Daumentaste 0x00C3; am Ende wird beides zurückgesetzt.
 
 func hexBytes(_ b: [UInt8]) -> String { b.map { String(format: "%02X", $0) }.joined(separator: " ") }
 
@@ -28,17 +28,24 @@ guard IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone)) == kIORetur
 IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
 _ = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
 
-final class Inbox { var bodies: [[UInt8]] = [] }
+final class Inbox {
+    var bodies: [[UInt8]] = []
+    var notifications: [[UInt8]] = []
+}
 let inbox = Inbox()
 let inBuf = UnsafeMutablePointer<UInt8>.allocate(capacity: 64)
 IOHIDDeviceRegisterInputReportCallback(device, inBuf, 64, { context, _, _, _, reportID, report, length in
     guard let context = context, UInt8(truncatingIfNeeded: reportID) == 0x11 else { return }
     let inbox = Unmanaged<Inbox>.fromOpaque(context).takeUnretainedValue()
     let raw = Array(UnsafeBufferPointer(start: report, count: length))
-    if raw.count > 1 { inbox.bodies.append(Array(raw.dropFirst())) }
+    guard raw.count > 1 else { return }
+    let body = Array(raw.dropFirst())
+    inbox.bodies.append(body)
+    if body.count >= 3, (body[2] & 0x0F) == 0 { inbox.notifications.append(body) }
 }, Unmanaged.passUnretained(inbox).toOpaque())
 
 var swCounter: UInt8 = 0
+@discardableResult
 func request(_ featureIndex: UInt8, _ function: UInt8, _ params: [UInt8] = []) -> (params: [UInt8]?, error: UInt8?) {
     swCounter = swCounter >= 0x0F ? 1 : swCounter + 1
     let swID = swCounter
@@ -65,41 +72,41 @@ func request(_ featureIndex: UInt8, _ function: UInt8, _ params: [UInt8] = []) -
     return (nil, nil)
 }
 
-func featureIndex(_ id: UInt16) -> UInt8? {
-    guard let p = request(0x00, 0x00, [UInt8(id >> 8), UInt8(id & 0xFF)]).params,
-          p.count >= 1, p[0] != 0 else { return nil }
-    return p[0]
+guard let root = request(0x00, 0x00, [0x1B, 0x04]).params, root[0] != 0 else {
+    print("0x1B04 nicht vorhanden."); exit(1)
+}
+let buttons = root[0]
+
+// divert (0x01) + dvalid (0x02) + rawXY (0x10) + rvalid (0x20) = 0x33
+let divertAndRaw: UInt8 = 0x33
+// alle Wert-Bits zurück auf 0, alle valid-Bits gesetzt = 0x2A
+let reset: UInt8 = 0x2A
+
+for cid: UInt16 in [0x00D7, 0x00C3] {
+    let hi = UInt8(cid >> 8), lo = UInt8(cid & 0xFF)
+    let r = request(buttons, 0x03, [hi, lo, divertAndRaw, 0x00, 0x00, 0x00])
+    let state = request(buttons, 0x02, [hi, lo]).params ?? []
+    print(String(format: "cid=0x%04X setzen -> %@, Status danach: %@",
+                 cid,
+                 r.error.map { "Fehler 0x\(String(format: "%02X", $0))" } ?? "OK",
+                 hexBytes(Array(state.prefix(5)))))
 }
 
-if let led = featureIndex(0x18A1) {
-    print("=== 0x18A1 LEDControl (Index \(led)) — nur Leseabfragen ===")
-    for function: UInt8 in 0...3 {
-        let r = request(led, function)
-        if let p = r.params {
-            print("  f\(function): \(hexBytes(Array(p.prefix(10))))")
-        } else {
-            // 0x07 = INVALID_FUNCTION_ID, 0x09 = UNSUPPORTED, 0x05 = LOGITECH_INTERNAL
-            print("  f\(function): Fehler 0x\(String(format: "%02X", r.error ?? 0))")
-        }
-    }
-    // Je LED-Index die Info abfragen, falls f0 eine Anzahl meldet.
-    if let count = request(led, 0x00).params?.first, count > 0, count < 8 {
-        print("  gemeldete LED-Anzahl: \(count)")
-        for index in 0..<count {
-            if let p = request(led, 0x01, [index]).params {
-                print("    LED \(index): \(hexBytes(Array(p.prefix(8))))")
-            }
-        }
+print("\nLausche 40s — Daumentaste halten und Maus bewegen …")
+inbox.notifications.removeAll()
+let deadline = Date().addingTimeInterval(40)
+var shown = 0
+while Date() < deadline {
+    CFRunLoopRunInMode(.defaultMode, 0.05, true)
+    while shown < inbox.notifications.count {
+        let n = inbox.notifications[shown]
+        shown += 1
+        if shown <= 40 { print("  \(hexBytes(Array(n.prefix(10))))") }
     }
 }
+print("Meldungen gesamt: \(inbox.notifications.count)")
 
-if let battery = featureIndex(0x1004) {
-    print("\n=== 0x1004 UnifiedBattery ===")
-    if let p = request(battery, 0x00).params {
-        print("  Capability: \(hexBytes(Array(p.prefix(6))))")
-    }
-    if let p = request(battery, 0x01).params {
-        print("  Status:     \(hexBytes(Array(p.prefix(6))))")
-        print("    Ladung=\(p[0])%  Zustand=\(p[2])  externe Versorgung=\((p.count > 3 ? p[3] : 0) & 1)")
-    }
+for cid: UInt16 in [0x00D7, 0x00C3] {
+    request(buttons, 0x03, [UInt8(cid >> 8), UInt8(cid & 0xFF), reset, 0x00, 0x00, 0x00])
 }
+print("Beide Controls zurückgesetzt.")
