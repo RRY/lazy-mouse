@@ -23,8 +23,37 @@ bei jedem Neubau ungültig machen. Nach dem ersten Start muss die Berechtigung e
 die App neu gestartet werden — bei fehlender Freigabe zeigt das Symbol ein Warndreieck und
 das Menü einen Direktlink in die Systemeinstellungen.
 
-Weil die Signatur ad hoc erzeugt wird, ändert sich der Hash bei jedem Neubau; macOS kann
-die Freigabe dann erneut anfordern.
+### Signatur und dauerhafte Freigabe
+
+macOS merkt sich die erteilte Berechtigung anhand der *Designated Requirement* der App.
+Bei einer **Ad-hoc-Signatur** enthält die den `cdhash` des Programms — der ändert sich bei
+jedem Neubau, sodass die Eingabeüberwachung jedes Mal neu erteilt werden müsste.
+
+`build-app.sh` signiert deshalb mit einem selbstsignierten Zertifikat. Die Anforderung
+lautet dann `identifier "de.ryback.mxmenu" and certificate root = H"…"` und ist damit vom
+Programm-Hash unabhängig; die Freigabe übersteht Neubauten. Fehlt das Zertifikat, weicht
+das Skript auf eine Ad-hoc-Signatur aus und weist darauf hin.
+
+Das Zertifikat muss **nicht** als vertrauenswürdig eingetragen werden — `codesign`
+akzeptiert es auch mit `CSSMERR_TP_NOT_TRUSTED`. Einmalig anlegen:
+
+```
+openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 7300 -nodes \
+  -subj "/CN=MX Menu Local Signing" \
+  -addext "basicConstraints=critical,CA:false" \
+  -addext "keyUsage=critical,digitalSignature" \
+  -addext "extendedKeyUsage=critical,codeSigning"
+
+# -legacy und -macalg sha1: security(1) liest die Vorgaben von OpenSSL 3 nicht.
+openssl pkcs12 -export -legacy -macalg sha1 -out identity.p12 -inkey key.pem -in cert.pem \
+  -name "MX Menu Local Signing" -passout pass:PASSWORT
+
+security import identity.p12 -k ~/Library/Keychains/login.keychain-db \
+  -P PASSWORT -T /usr/bin/codesign
+```
+
+Danach `key.pem`, `cert.pem` und `identity.p12` löschen — der private Schlüssel liegt im
+Schlüsselbund. Ein abweichender Name lässt sich über `SIGN_IDENTITY` setzen.
 
 ## CLI
 
