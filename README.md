@@ -188,7 +188,9 @@ Die Maus führt zwei getrennte Namensfelder:
   eigener Software zur Beschriftung genutzt. Das ist das Feld, das `mxctl name` und das
   Einstellungsfenster ändern.
 
-Ein über `0x0007` gesetzter Name taucht in der Bluetooth-Übersicht deshalb nicht auf.
+Ein über `0x0007` gesetzter Name taucht in der Bluetooth-Übersicht deshalb nicht auf. Das
+Einstellungsfenster bietet ihn aus diesem Grund nicht an — wer das Feld dennoch setzen
+will, nimmt `mxctl name`.
 
 ### Was die MX Master 3S nicht kann
 

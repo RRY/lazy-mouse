@@ -4,9 +4,6 @@ import HIDPPKit
 struct SettingsView: View {
     @ObservedObject var model: MouseModel
 
-    /// Eingabepuffer für den Gerätenamen, damit nicht jeder Tastendruck ans Gerät geht.
-    @State private var editedName = ""
-
     /// Die programmierbaren Tasten der MX Master 3S. Die Control-IDs stammen aus
     /// `mxctl buttons list`; nur umleitbare Tasten sind sinnvoll wählbar.
     private static let selectableButtons: [(cid: Int, name: String)] = [
@@ -60,21 +57,10 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Interner Gerätename") {
-                // Erst beim Bestätigen schreiben: sonst ginge pro Tastendruck ein
-                // Schreibvorgang ans Gerät.
-                TextField("Name", text: $editedName)
-                    .onSubmit { model.setFriendlyName(editedName) }
-                Text(model.friendlyNameProblem
-                     ?? "Mit Return bestätigen, nur ASCII-Zeichen. Dieses Feld ist im Gerät "
-                     + "gespeichert und erscheint nicht in den Bluetooth-Einstellungen: den dort "
-                     + "gezeigten Namen hält die Maus in einem separaten, schreibgeschützten Feld.")
-                    .font(.caption)
-                    .foregroundStyle(model.friendlyNameProblem == nil ? Color.secondary : Color.orange)
-            }
-            .disabled(!model.connected)
-            .onAppear { editedName = model.friendlyName }
-            .onChange(of: model.friendlyName) { _, new in editedName = new }
+            // Kein Feld für den Gerätenamen: änderbar ist nur ein geräteinternes Feld
+            // (0x0007), das nirgends in macOS auftaucht — der in den Bluetooth-Einstellungen
+            // gezeigte Name (0x0005) ist schreibgeschützt. Wer das Feld dennoch setzen will,
+            // nimmt `mxctl name`.
 
             Section("DPI-Umschaltung per Taste") {
                 Toggle("Aktiviert", isOn: $model.cycleEnabled)

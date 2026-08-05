@@ -22,8 +22,6 @@ final class MouseModel: ObservableObject {
     @Published var firmwareVersion: String?
     @Published var serialNumber: String?
     @Published var hostChannel: (channel: Int, total: Int)?
-    @Published var friendlyName = ""
-    @Published var friendlyNameProblem: String?
 
     // Einstellungen werden von Hand in UserDefaults gespiegelt statt über @AppStorage:
     // dessen Wrapper löst in einer ObservableObject-Klasse kein objectWillChange aus, die
@@ -174,46 +172,17 @@ final class MouseModel: ObservableObject {
         let hostChannel: (channel: Int, total: Int)?
     }
 
-    /// Firmware, Seriennummer und Name ändern sich nicht von selbst — einmal beim Verbinden
-    /// zu lesen genügt, statt sie in jeden Minutentakt aufzunehmen.
+    /// Firmware und Seriennummer ändern sich nicht von selbst — einmal beim Verbinden zu
+    /// lesen genügt, statt sie in jeden Minutentakt aufzunehmen.
     private func loadStaticInfo() {
-        worker.perform { device -> (String?, String?, String) in
+        worker.perform { device -> (String?, String?) in
             let info = DeviceInfoFeature(device: device)
-            return (
-                try? info.firmwareVersion(),
-                try? info.serialNumber(),
-                (try? FriendlyNameFeature(device: device).name()) ?? ""
-            )
+            return (try? info.firmwareVersion(), try? info.serialNumber())
         } completion: { [weak self] result in
             guard case .success(let values) = result else { return }
             Task { @MainActor in
                 self?.firmwareVersion = values.0
                 self?.serialNumber = values.1
-                self?.friendlyName = values.2
-            }
-        }
-    }
-
-    func setFriendlyName(_ newName: String) {
-        let trimmed = newName.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else {
-            friendlyNameProblem = "Der Name darf nicht leer sein."
-            return
-        }
-        worker.perform { device -> String in
-            let feature = FriendlyNameFeature(device: device)
-            try feature.setName(trimmed)
-            // Zurücklesen: das Gerät kürzt zu lange Namen selbst.
-            return try feature.name()
-        } completion: { [weak self] result in
-            Task { @MainActor in
-                switch result {
-                case .success(let stored):
-                    self?.friendlyName = stored
-                    self?.friendlyNameProblem = stored == trimmed ? nil : "Auf \(stored.count) Zeichen gekürzt."
-                case .failure(let error):
-                    self?.friendlyNameProblem = "\(error)"
-                }
             }
         }
     }
