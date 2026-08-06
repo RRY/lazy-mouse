@@ -46,7 +46,7 @@
 /* Hinweise */
 "hint.permissionRestart" = "Nach dem Erteilen muss die App neu gestartet werden.";
 "hint.deviceName" = "Mit Return bestätigen, höchstens %1$d ASCII-Zeichen. macOS übernimmt den Namen erst beim nächsten Verbinden und zeigt davon die ersten %2$d Zeichen.";
-"hint.dpiSteps" = "Kommagetrennte Werte, mindestens zwei. Solange die Umschaltung aktiv ist, löst die gewählte Taste ihre normale Funktion nicht mehr aus.";
+"hint.dpiSteps" = "Die Werte werden durch Komma getrennt, mindestens zwei sind nötig.";
 "hint.dpiLimits" = "Erlaubt sind %1$d bis %2$d in Schritten von %3$d. ";
 "hint.invert" = "Die Umkehrung wirkt im Gerät und kommt zur Scrollrichtung aus den Systemeinstellungen hinzu — beide zusammen heben sich auf.";
 "hint.cycleEnabled" = "Leitet die gewählte Taste um, damit sie die DPI weiterschaltet. Ihre angestammte Funktion entfällt so lange und kehrt beim Ausschalten zurück.";

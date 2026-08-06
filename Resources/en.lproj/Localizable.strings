@@ -46,7 +46,7 @@
 /* Hints */
 "hint.permissionRestart" = "The app has to be restarted after granting.";
 "hint.deviceName" = "Confirm with Return, at most %1$d ASCII characters. macOS picks the name up on the next connection and shows its first %2$d characters.";
-"hint.dpiSteps" = "Comma-separated values, at least two. While switching is active the chosen button no longer triggers its normal function.";
+"hint.dpiSteps" = "Separate the values with commas, at least two are required.";
 "hint.dpiLimits" = "Allowed are %1$d to %2$d in steps of %3$d. ";
 "hint.invert" = "Inversion happens in the device and adds to the scroll direction from System Settings — the two cancel each other out.";
 "hint.cycleEnabled" = "Diverts the chosen button so it steps through DPI levels. Its native function is suspended meanwhile and returns when switched off.";
