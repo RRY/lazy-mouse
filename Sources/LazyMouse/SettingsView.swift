@@ -4,6 +4,9 @@ import HIDPPKit
 struct SettingsView: View {
     @ObservedObject var model: MouseModel
 
+    /// Eingabepuffer für den Gerätenamen, damit nicht jeder Tastendruck ans Gerät geht.
+    @State private var editedName = ""
+
     var body: some View {
         Form {
             if !model.connected {
@@ -47,10 +50,21 @@ struct SettingsView: View {
                 }
             }
 
-            // Kein Feld für den Gerätenamen: änderbar ist nur ein geräteinternes Feld
-            // (0x0007), das nirgends in macOS auftaucht — der in den Bluetooth-Einstellungen
-            // gezeigte Name (0x0005) ist schreibgeschützt. Wer das Feld dennoch setzen will,
-            // nimmt `mxctl name`.
+            Section("Gerätename") {
+                // Erst beim Bestätigen schreiben: sonst ginge pro Tastendruck ein
+                // Schreibvorgang ans Gerät.
+                TextField("Name", text: $editedName)
+                    .onSubmit { model.setFriendlyName(editedName) }
+                Text(model.friendlyNameProblem
+                     ?? "Mit Return bestätigen, nur ASCII-Zeichen. macOS übernimmt den Namen "
+                     + "erst beim nächsten Verbinden und zeigt davon die ersten "
+                     + "\(MouseModel.displayedNameLength) Zeichen.")
+                    .font(.caption)
+                    .foregroundStyle(model.friendlyNameProblem == nil ? Color.secondary : Color.orange)
+            }
+            .disabled(!model.connected)
+            .onAppear { editedName = model.friendlyName }
+            .onChange(of: model.friendlyName) { _, new in editedName = new }
 
             Section("DPI-Umschaltung per Taste") {
                 Toggle("Aktiviert", isOn: $model.cycleEnabled)

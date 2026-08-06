@@ -24,6 +24,12 @@ final class MouseModel: ObservableObject {
     /// Tasten, die für die DPI-Umschaltung angeboten werden. Gelesen wird vom Gerät, damit
     /// die Auswahl auch bei anderen Modellen stimmt.
     @Published var availableButtons: [(cid: Int, name: String)] = []
+    @Published var friendlyName = ""
+    @Published var friendlyNameProblem: String?
+
+    /// Zeichen, die macOS vom Gerätenamen übernimmt. Das Gerät speichert mehr (18), zeigt
+    /// in den Bluetooth-Einstellungen erscheint aber nur der gekürzte Anfang.
+    static let displayedNameLength = 14
 
     /// Nur Tasten, deren angestammte Funktion entbehrlich ist. Zurück, Vorwärts und die
     /// mittlere Taste sind in ihrer Standardbelegung nützlicher als eine DPI-Umschaltung,
@@ -160,6 +166,34 @@ final class MouseModel: ObservableObject {
         }
     }
 
+    /// Schreibt den Gerätenamen. macOS übernimmt ihn erst beim nächsten Verbinden und kürzt
+    /// ihn dabei auf `displayedNameLength` Zeichen.
+    func setFriendlyName(_ newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
+            friendlyNameProblem = "Der Name darf nicht leer sein."
+            return
+        }
+        worker.perform { device -> String in
+            let feature = FriendlyNameFeature(device: device)
+            try feature.setName(trimmed)
+            // Zurücklesen: das Gerät kürzt zu lange Namen selbst.
+            return try feature.name()
+        } completion: { [weak self] result in
+            Task { @MainActor in
+                switch result {
+                case .success(let stored):
+                    self?.friendlyName = stored
+                    self?.friendlyNameProblem = stored == trimmed
+                        ? nil
+                        : "Vom Gerät auf \(stored.count) Zeichen gekürzt: \(stored)"
+                case .failure(let error):
+                    self?.friendlyNameProblem = "\(error)"
+                }
+            }
+        }
+    }
+
     func setDPI(_ dpi: Int) {
         worker.perform { device in
             try AdjustableDPIFeature(device: device).setDPI(dpi)
@@ -185,7 +219,7 @@ final class MouseModel: ObservableObject {
     /// Firmware und Seriennummer ändern sich nicht von selbst — einmal beim Verbinden zu
     /// lesen genügt, statt sie in jeden Minutentakt aufzunehmen.
     private func loadStaticInfo() {
-        worker.perform { device -> (String?, String?, [(cid: Int, name: String)]) in
+        worker.perform { device -> (String?, String?, [(cid: Int, name: String)], String) in
             let info = DeviceInfoFeature(device: device)
             let controls = (try? SpecialButtonsFeature(device: device).listControls()) ?? []
             let divertable = controls.filter(\.isDivertable).map { (cid: Int($0.controlID), name: $0.name) }
@@ -193,7 +227,8 @@ final class MouseModel: ObservableObject {
             return (
                 try? info.firmwareVersion(),
                 try? info.serialNumber(),
-                preferred.isEmpty ? divertable : preferred
+                preferred.isEmpty ? divertable : preferred,
+                (try? FriendlyNameFeature(device: device).name()) ?? ""
             )
         } completion: { [weak self] result in
             guard case .success(let values) = result else { return }
@@ -202,6 +237,7 @@ final class MouseModel: ObservableObject {
                 self.firmwareVersion = values.0
                 self.serialNumber = values.1
                 self.availableButtons = values.2
+                self.friendlyName = values.3
                 // Die gespeicherte Taste kann von einem anderen Gerät stammen; dann auf die
                 // erste vorhandene ausweichen, sonst zeigte die Auswahl ins Leere.
                 if !values.2.isEmpty, !values.2.contains(where: { $0.cid == self.cycleButtonCID }) {

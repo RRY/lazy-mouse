@@ -179,20 +179,31 @@ Seriennummer und Name aus demselben Block korrekt gelesen wurden. `HIDPPWorker` 
 deshalb eine eigene Warteschlange und entnimmt Aufträge nur auf oberster Ebene der
 Thread-Schleife, außerhalb jedes RunLoop-Aufrufs.
 
-### Zwei Gerätenamen, nur einer ist schreibbar
+### Zwei Gerätenamen — macOS zeigt den schreibbaren, gekürzt
 
 Die Maus führt zwei getrennte Namensfelder:
 
-* **`0x0005` DeviceNameType** — `MX Master 3S`. Diesen Namen zeigt macOS in den
-  Bluetooth-Einstellungen. Das Feature hat **keinen Setter**: Funktionen 3 und höher
-  antworten mit `INVALID_FUNCTION_ID`. Über HID++ ist er nicht änderbar.
-* **`0x0007` DeviceFriendlyName** — frei beschreibbar, im Gerät gespeichert, von Logitechs
-  eigener Software zur Beschriftung genutzt. Das ist das Feld, das `mxctl name` und das
-  Einstellungsfenster ändern.
+* **`0x0005` DeviceNameType** — `MX Master 3S`, die Modellbezeichnung. Schreibgeschützt:
+  Funktionen 3 und höher antworten mit `INVALID_FUNCTION_ID`. Sie bleibt unverändert.
+* **`0x0007` DeviceFriendlyName** — frei beschreibbar, bis 18 Zeichen, im Gerät gespeichert.
+  Das ist das Feld, das `mxctl name` und das Einstellungsfenster ändern.
 
-Ein über `0x0007` gesetzter Name taucht in der Bluetooth-Übersicht deshalb nicht auf. Das
-Einstellungsfenster bietet ihn aus diesem Grund nicht an — wer das Feld dennoch setzen
-will, nimmt `mxctl name`.
+**macOS zeigt den Friendly Name, nicht die Modellbezeichnung** — allerdings nur die ersten
+**14 Zeichen**, und erst nachdem die Maus sich neu verbunden hat. Am Gerät gemessen, mit
+`Ralles Master Maus` als Friendly Name:
+
+| Quelle | Wert |
+|---|---|
+| `0x0005` DeviceNameType | `MX Master 3S` (unverändert) |
+| `0x0007` DeviceFriendlyName | `Ralles Master Maus` (18 Zeichen) |
+| `kIOHIDProductKey` / Bluetooth-Einstellungen | `Ralles Master ` (14 Zeichen) |
+
+Die Kürzung passiert auf dem Weg zum Host, nicht im gespeicherten Feld — ein Rücklesen von
+`0x0007` liefert weiterhin alle 18 Zeichen.
+
+Eine Folge für den Code: Der `nameHint` des Transports steht auf `"MX Master"` und passt
+nach einer Umbenennung nicht mehr. Er fällt auf jedes Logitech-Gerät mit HID++-Collection
+zurück, es bricht also nichts — der Hinweis ist eine Bevorzugung, keine Bedingung.
 
 ### Scrollauflösung: nur 1 oder 15, nichts dazwischen
 

@@ -194,18 +194,31 @@ connect): the firmware arrived as `nil` while serial number and name from the sa
 were read correctly. `HIDPPWorker` therefore keeps its own queue and takes jobs only at the
 top level of its thread loop, outside any run loop call.
 
-### Two device names, only one is writable
+### Two device names — macOS shows the writable one, truncated
 
 The mouse keeps two separate name fields:
 
-* **`0x0005` DeviceNameType** — `MX Master 3S`. This is the name macOS shows in Bluetooth
-  settings. The feature has **no setter**: functions 3 and up answer `INVALID_FUNCTION_ID`.
-  It cannot be changed over HID++.
-* **`0x0007` DeviceFriendlyName** — freely writable, stored in the device, used by
-  Logitech's own software for labelling. This is the field `mxctl name` changes.
+* **`0x0005` DeviceNameType** — `MX Master 3S`, the model designation. Read-only: functions
+  3 and up answer `INVALID_FUNCTION_ID`. It stays put no matter what.
+* **`0x0007` DeviceFriendlyName** — freely writable, up to 18 characters, stored in the
+  device. This is the field `mxctl name` and the settings window change.
 
-A name set through `0x0007` therefore never shows up in the Bluetooth list. For that reason
-the settings window does not offer it — use `mxctl name` if you want to set it anyway.
+**macOS displays the friendly name, not the model designation** — but only the first
+**14 characters**, and only after the mouse reconnects. Measured on the device with the
+friendly name set to `Ralles Master Maus`:
+
+| Source | Value |
+|---|---|
+| `0x0005` DeviceNameType | `MX Master 3S` (unchanged) |
+| `0x0007` DeviceFriendlyName | `Ralles Master Maus` (18 chars) |
+| `kIOHIDProductKey` / Bluetooth settings | `Ralles Master ` (14 chars) |
+
+The truncation happens on the way out to the host, not in the stored field — reading
+`0x0007` back still yields all 18 characters.
+
+One consequence for the code: the transport's `nameHint` defaults to `"MX Master"`, which no
+longer matches once the device is renamed. It falls back to any Logitech device carrying a
+HID++ collection, so nothing breaks — but the hint is a preference, never a requirement.
 
 ### Scroll resolution: 1 or 15, nothing in between
 
