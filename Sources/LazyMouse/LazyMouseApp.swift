@@ -36,7 +36,7 @@ struct MenuContent: View {
         // Eintrag gezeichnet und ist dadurch schlecht lesbar. Batterie und DPI stehen im
         // Symbol beziehungsweise im Einstellungsfenster.
         if model.connected {
-            Menu("DPI") {
+            Menu(LocalizedStringKey("menu.dpi")) {
                 ForEach(model.cycleSteps, id: \.self) { step in
                     Button {
                         model.setDPI(step)
@@ -48,33 +48,33 @@ struct MenuContent: View {
 
             // Das Scrollrad steht nur im Einstellungsfenster: seltener gebraucht als die
             // DPI-Umschaltung, und das Menü soll kurz bleiben.
-            Toggle("DPI-Taste aktiv", isOn: $model.cycleEnabled)
+            Toggle(LocalizedStringKey("menu.dpiButtonActive"), isOn: $model.cycleEnabled)
         } else if model.permissionDenied {
             // Ohne diese Berechtigung liefert IOHIDManagerOpen kIOReturnNotPermitted.
             // Ein erneuter Verbindungsversuch scheitert zwangsläufig, deshalb führt der
             // Eintrag direkt zur einzigen Stelle, an der sich das beheben lässt.
             // Woran es hakt, steht im Einstellungsfenster.
-            Button("Eingabeüberwachung öffnen …") {
+            Button(LocalizedStringKey("action.openInputMonitoring")) {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
                     NSWorkspace.shared.open(url)
                 }
             }
         } else {
-            Button("Erneut verbinden") { model.connect() }
+            Button(LocalizedStringKey("action.reconnect")) { model.connect() }
         }
 
         Divider()
-        Toggle("Beim Anmelden starten", isOn: Binding(
+        Toggle(LocalizedStringKey("label.launchAtLogin"), isOn: Binding(
             get: { model.launchAtLogin },
             set: { model.setLaunchAtLogin($0) }
         ))
 
         Divider()
-        Button("Einstellungen …") {
+        Button(LocalizedStringKey("menu.settings")) {
             SettingsWindowController.shared.show(model: model)
         }
         .keyboardShortcut(",", modifiers: .command)
-        Button("Beenden") {
+        Button(LocalizedStringKey("menu.quit")) {
             model.releaseButtonOnQuit()
             NSApplication.shared.terminate(nil)
         }

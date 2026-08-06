@@ -1,0 +1,71 @@
+/* Menu bar */
+"menu.dpi" = "DPI";
+"menu.dpiButtonActive" = "DPI button active";
+"menu.settings" = "Settings …";
+"menu.quit" = "Quit";
+
+/* Actions while disconnected */
+"action.openInputMonitoring" = "Open Input Monitoring …";
+"action.reconnect" = "Reconnect";
+"action.open" = "Open";
+
+/* Settings window sections */
+"section.device" = "Device";
+"section.deviceName" = "Device name";
+"section.dpiCycle" = "DPI switching by button";
+"section.start" = "Startup";
+"section.wheel" = "Scroll wheel";
+
+/* Labels */
+"label.status" = "Status";
+"label.battery" = "Battery";
+"label.currentDPI" = "Current DPI";
+"label.channel" = "Channel";
+"label.firmware" = "Firmware";
+"label.serial" = "Serial number";
+"label.name" = "Name";
+"label.enabled" = "Enabled";
+"label.button" = "Button";
+"label.steps" = "Steps";
+"label.mode" = "Mode";
+"label.launchAtLogin" = "Launch at login";
+"label.ratchet" = "Ratcheted";
+"label.freespin" = "Free spin";
+"label.invertWheel" = "Invert scroll direction";
+"label.invertThumb" = "Invert thumb wheel";
+
+/* Values and formats */
+"value.batteryCharging" = "%d %% (charging)";
+"value.battery" = "%d %%";
+"value.channel" = "%1$d of %2$d";
+
+/* Status messages */
+"status.notConnected" = "Not connected";
+"status.connected" = "Connected";
+"status.noPermission" = "No access — Input Monitoring not granted";
+"status.deviceNotFound" = "Mouse not found — switched on and paired?";
+
+/* Hints */
+"hint.permissionRestart" = "The app has to be restarted after granting.";
+"hint.deviceName" = "Confirm with Return, ASCII characters only. macOS picks the name up on the next connection and shows its first %d characters.";
+"hint.dpiSteps" = "Comma-separated values, at least two. While switching is active the chosen button no longer triggers its normal function.";
+"hint.dpiLimits" = "Allowed are %1$d to %2$d in steps of %3$d. ";
+"hint.invert" = "Inversion happens in the device and adds to the scroll direction from System Settings — the two cancel each other out.";
+
+/* Errors and warnings */
+"problem.nameEmpty" = "The name must not be empty.";
+"problem.nameTruncated" = "Truncated by the device to %1$d characters: %2$@";
+"problem.stepsTooFew" = "At least two values, separated by commas.";
+"problem.stepsRejected" = "Rejected by the device: %@";
+"problem.loginItemBlocked" = "Allow it in System Settings under Login Items.";
+
+/* Button names */
+"button.0x0050" = "Left click";
+"button.0x0051" = "Right click";
+"button.0x0052" = "Middle button";
+"button.0x0053" = "Back";
+"button.0x0056" = "Forward";
+"button.0x00C3" = "Gesture button (thumb)";
+"button.0x00C4" = "Button at the wheel";
+"button.0x00D7" = "Virtual gesture button";
+"button.unknown" = "Button 0x%04X";

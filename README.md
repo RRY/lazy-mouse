@@ -39,6 +39,22 @@ every rebuild. After the first launch the permission has to be granted and the a
 restarted — while it is missing, the icon shows a warning triangle and the menu offers a
 direct link to System Settings.
 
+### Languages
+
+The app follows the system language and ships German and English. Strings live in
+`Resources/{de,en}.lproj/Localizable.strings`; `build-app.sh` copies them straight into
+`Contents/Resources` so `Bundle.main` picks them up — SwiftUI's `Text` and
+`String(localized:)` then need no bundle argument. A SwiftPM resource bundle would sit in a
+separate `.bundle` and have to be addressed explicitly everywhere.
+
+To check the other language without changing system settings:
+
+```
+"/Applications/Lazy Mouse.app/Contents/MacOS/LazyMouse" -AppleLanguages '(en)'
+```
+
+`mxctl` is German-only for now; its messages are not routed through the string files.
+
 ### Signing and a permission that sticks
 
 macOS remembers a granted permission by the app's *designated requirement*. With an

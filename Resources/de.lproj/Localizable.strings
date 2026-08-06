@@ -1,0 +1,71 @@
+/* Menüleiste */
+"menu.dpi" = "DPI";
+"menu.dpiButtonActive" = "DPI-Taste aktiv";
+"menu.settings" = "Einstellungen …";
+"menu.quit" = "Beenden";
+
+/* Aktionen bei fehlender Verbindung */
+"action.openInputMonitoring" = "Eingabeüberwachung öffnen …";
+"action.reconnect" = "Erneut verbinden";
+"action.open" = "Öffnen";
+
+/* Abschnitte im Einstellungsfenster */
+"section.device" = "Gerät";
+"section.deviceName" = "Gerätename";
+"section.dpiCycle" = "DPI-Umschaltung per Taste";
+"section.start" = "Start";
+"section.wheel" = "Scrollrad";
+
+/* Beschriftungen */
+"label.status" = "Status";
+"label.battery" = "Batterie";
+"label.currentDPI" = "Aktuelle DPI";
+"label.channel" = "Kanal";
+"label.firmware" = "Firmware";
+"label.serial" = "Seriennummer";
+"label.name" = "Name";
+"label.enabled" = "Aktiviert";
+"label.button" = "Taste";
+"label.steps" = "Stufen";
+"label.mode" = "Modus";
+"label.launchAtLogin" = "Beim Anmelden starten";
+"label.ratchet" = "Gerastert";
+"label.freespin" = "Freilauf";
+"label.invertWheel" = "Scrollrichtung umkehren";
+"label.invertThumb" = "Daumenrad umkehren";
+
+/* Werte und Formate */
+"value.batteryCharging" = "%d %% (lädt)";
+"value.battery" = "%d %%";
+"value.channel" = "%1$d von %2$d";
+
+/* Statusmeldungen */
+"status.notConnected" = "Nicht verbunden";
+"status.connected" = "Verbunden";
+"status.noPermission" = "Kein Zugriff — Eingabeüberwachung nicht erlaubt";
+"status.deviceNotFound" = "Maus nicht gefunden — eingeschaltet und gekoppelt?";
+
+/* Hinweise */
+"hint.permissionRestart" = "Nach dem Erteilen muss die App neu gestartet werden.";
+"hint.deviceName" = "Mit Return bestätigen, nur ASCII-Zeichen. macOS übernimmt den Namen erst beim nächsten Verbinden und zeigt davon die ersten %d Zeichen.";
+"hint.dpiSteps" = "Kommagetrennte Werte, mindestens zwei. Solange die Umschaltung aktiv ist, löst die gewählte Taste ihre normale Funktion nicht mehr aus.";
+"hint.dpiLimits" = "Erlaubt sind %1$d bis %2$d in Schritten von %3$d. ";
+"hint.invert" = "Die Umkehrung wirkt im Gerät und kommt zur Scrollrichtung aus den Systemeinstellungen hinzu — beide zusammen heben sich auf.";
+
+/* Fehler und Warnungen */
+"problem.nameEmpty" = "Der Name darf nicht leer sein.";
+"problem.nameTruncated" = "Vom Gerät auf %1$d Zeichen gekürzt: %2$@";
+"problem.stepsTooFew" = "Mindestens zwei Werte, durch Komma getrennt.";
+"problem.stepsRejected" = "Vom Gerät abgelehnt: %@";
+"problem.loginItemBlocked" = "In den Systemeinstellungen unter Anmeldeobjekte freigeben.";
+
+/* Tastennamen */
+"button.0x0050" = "Linksklick";
+"button.0x0051" = "Rechtsklick";
+"button.0x0052" = "Mittlere Taste";
+"button.0x0053" = "Zurück";
+"button.0x0056" = "Vorwärts";
+"button.0x00C3" = "Gestentaste (Daumen)";
+"button.0x00C4" = "Taste am Scrollrad";
+"button.0x00D7" = "Virtuelle Gestentaste";
+"button.unknown" = "Taste 0x%04X";

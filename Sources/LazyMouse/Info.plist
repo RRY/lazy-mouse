@@ -17,6 +17,13 @@
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <!-- Reine Menüleisten-App: kein Dock-Symbol, kein Fenster beim Start. -->
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>de</string>
+    </array>
     <key>LSUIElement</key>
     <true/>
 </dict>

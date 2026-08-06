@@ -37,6 +37,12 @@ cp "$BIN" "$APP/Contents/MacOS/LazyMouse"
 cp "$ROOT/Sources/LazyMouse/Info.plist" "$APP/Contents/Info.plist"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
+# Sprachdateien direkt nach Contents/Resources statt über SwiftPM-Ressourcen: dann findet
+# sie `Bundle.main`, was SwiftUI und String(localized:) ohne Zutun verwenden. Ein
+# SwiftPM-Ressourcenbündel läge dagegen in einem eigenen .bundle und müsste überall
+# ausdrücklich adressiert werden.
+cp -R "$ROOT/Resources/"*.lproj "$APP/Contents/Resources/"
+
 # Signieren. Mit eigenem Zertifikat lautet die Designated Requirement
 #   identifier "de.ryback.lazymouse" and certificate root = H"..."
 # also unabhängig vom Programm-Hash — die erteilte Eingabeüberwachung übersteht damit

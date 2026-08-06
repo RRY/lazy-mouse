@@ -9,7 +9,7 @@ final class MouseModel: ObservableObject {
 
     @Published var productName: String = "—"
     @Published var connected = false
-    @Published var statusMessage = "Nicht verbunden"
+    @Published var statusMessage = String(localized: "status.notConnected")
     /// Steuert, ob ein erneuter Verbindungsversuch überhaupt Sinn ergibt: eine fehlende
     /// Berechtigung kann nur der Nutzer in den Systemeinstellungen beheben.
     @Published var permissionDenied = false
@@ -34,12 +34,12 @@ final class MouseModel: ObservableObject {
     var cycleStepsProblem: String? {
         guard let range = dpiRange else { return nil }
         let parsed = cycleStepsRaw.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
-        guard parsed.count >= 2 else { return "Mindestens zwei Werte, durch Komma getrennt." }
+        guard parsed.count >= 2 else { return String(localized: "problem.stepsTooFew") }
         let invalid = parsed.filter {
             $0 < range.min || $0 > range.max || ($0 - range.min) % range.step != 0
         }
         guard invalid.isEmpty else {
-            return "Vom Gerät abgelehnt: \(invalid.map(String.init).joined(separator: ", "))"
+            return String(format: String(localized: "problem.stepsRejected"), invalid.map(String.init).joined(separator: ", "))
         }
         return nil
     }
@@ -47,6 +47,18 @@ final class MouseModel: ObservableObject {
     /// Zeichen, die macOS vom Gerätenamen übernimmt. Das Gerät speichert mehr (18), zeigt
     /// in den Bluetooth-Einstellungen erscheint aber nur der gekürzte Anfang.
     static let displayedNameLength = 14
+
+    /// Tastenname in der Sprache des Systems. Bewusst hier statt in `HIDPPKit`: die
+    /// Bibliothek kennt keine Sprachdateien, ihre Namen dienen dem CLI.
+    static func localizedButtonName(for cid: UInt16) -> String {
+        let key = String(format: "button.0x%04X", cid)
+        let localized = String(localized: String.LocalizationValue(key))
+        // Unbekannte Control-ID: der Schlüssel kommt unübersetzt zurück.
+        guard localized != key else {
+            return String(format: String(localized: "button.unknown"), cid)
+        }
+        return localized
+    }
 
     /// Nur Tasten, deren angestammte Funktion entbehrlich ist. Zurück, Vorwärts und die
     /// mittlere Taste sind in ihrer Standardbelegung nützlicher als eine DPI-Umschaltung,
@@ -86,7 +98,7 @@ final class MouseModel: ObservableObject {
         if let error = LoginItem.setEnabled(enabled) {
             launchAtLoginProblem = error
         } else if enabled && LoginItem.isBlockedBySystem {
-            launchAtLoginProblem = "In den Systemeinstellungen unter Anmeldeobjekte freigeben."
+            launchAtLoginProblem = String(localized: "problem.loginItemBlocked")
         } else {
             launchAtLoginProblem = nil
         }
@@ -129,7 +141,7 @@ final class MouseModel: ObservableObject {
             productName = name
             connected = true
             permissionDenied = false
-            statusMessage = "Verbunden"
+            statusMessage = String(localized: "status.connected")
             loadStaticInfo()
             refresh()
             // Batterie ändert sich träge; ein Intervall von einer Minute reicht.
@@ -140,16 +152,16 @@ final class MouseModel: ObservableObject {
             connected = false
             permissionDenied = (error as? HIDPPError)?.isPermissionDenied ?? false
             if permissionDenied {
-                statusMessage = "Kein Zugriff — Eingabeüberwachung nicht erlaubt"
+                statusMessage = String(localized: "status.noPermission")
             } else if case HIDPPError.deviceNotFound = error {
-                statusMessage = "Maus nicht gefunden — eingeschaltet und gekoppelt?"
+                statusMessage = String(localized: "status.deviceNotFound")
             } else {
                 statusMessage = "\(error)"
             }
         case .idle:
             connected = false
             permissionDenied = false
-            statusMessage = "Nicht verbunden"
+            statusMessage = String(localized: "status.notConnected")
         }
     }
 
@@ -188,7 +200,7 @@ final class MouseModel: ObservableObject {
     func setFriendlyName(_ newName: String) {
         let trimmed = newName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else {
-            friendlyNameProblem = "Der Name darf nicht leer sein."
+            friendlyNameProblem = String(localized: "problem.nameEmpty")
             return
         }
         worker.perform { device -> String in
@@ -203,7 +215,7 @@ final class MouseModel: ObservableObject {
                     self?.friendlyName = stored
                     self?.friendlyNameProblem = stored == trimmed
                         ? nil
-                        : "Vom Gerät auf \(stored.count) Zeichen gekürzt: \(stored)"
+                        : String(format: String(localized: "problem.nameTruncated"), stored.count, stored)
                 case .failure(let error):
                     self?.friendlyNameProblem = "\(error)"
                 }
@@ -239,7 +251,9 @@ final class MouseModel: ObservableObject {
         worker.perform { device -> (String?, String?, [(cid: Int, name: String)], String, (min: Int, max: Int, step: Int)?) in
             let info = DeviceInfoFeature(device: device)
             let controls = (try? SpecialButtonsFeature(device: device).listControls()) ?? []
-            let divertable = controls.filter(\.isDivertable).map { (cid: Int($0.controlID), name: $0.name) }
+            let divertable = controls.filter(\.isDivertable).map {
+                (cid: Int($0.controlID), name: MouseModel.localizedButtonName(for: $0.controlID))
+            }
             let preferred = divertable.filter { MouseModel.preferredCycleButtons.contains($0.cid) }
             return (
                 try? info.firmwareVersion(),

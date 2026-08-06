@@ -16,49 +16,48 @@ struct SettingsView: View {
                     Label(model.statusMessage, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                     if model.permissionDenied {
-                        Text("Nach dem Erteilen muss die App neu gestartet werden.")
+                        Text(LocalizedStringKey("hint.permissionRestart"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Button("Eingabeüberwachung öffnen …") {
+                        Button(LocalizedStringKey("action.openInputMonitoring")) {
                             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
                                 NSWorkspace.shared.open(url)
                             }
                         }
                     } else {
-                        Button("Erneut verbinden") { model.connect() }
+                        Button(LocalizedStringKey("action.reconnect")) { model.connect() }
                     }
                 }
             }
 
-            Section("Gerät") {
-                LabeledContent("Status", value: model.connected ? model.productName : model.statusMessage)
+            Section(LocalizedStringKey("section.device")) {
+                LabeledContent(LocalizedStringKey("label.status"), value: model.connected ? model.productName : model.statusMessage)
                 if let percent = model.batteryPercent {
-                    LabeledContent("Batterie", value: "\(percent)%\(model.charging ? " (lädt)" : "")")
+                    LabeledContent(LocalizedStringKey("label.battery"),
+                                   value: String(format: String(localized: model.charging ? "value.batteryCharging" : "value.battery"), percent))
                 }
                 if let dpi = model.currentDPI {
-                    LabeledContent("Aktuelle DPI", value: "\(dpi)")
+                    LabeledContent(LocalizedStringKey("label.currentDPI"), value: "\(dpi)")
                 }
                 if let host = model.hostChannel {
-                    LabeledContent("Kanal", value: "\(host.channel) von \(host.total)")
+                    LabeledContent(LocalizedStringKey("label.channel"), value: String(format: String(localized: "value.channel"), host.channel, host.total))
                 }
                 if let firmware = model.firmwareVersion {
-                    LabeledContent("Firmware", value: firmware)
+                    LabeledContent(LocalizedStringKey("label.firmware"), value: firmware)
                 }
                 if let serial = model.serialNumber {
-                    LabeledContent("Seriennummer", value: serial)
+                    LabeledContent(LocalizedStringKey("label.serial"), value: serial)
                         .textSelection(.enabled)
                 }
             }
 
-            Section("Gerätename") {
+            Section(LocalizedStringKey("section.deviceName")) {
                 // Erst beim Bestätigen schreiben: sonst ginge pro Tastendruck ein
                 // Schreibvorgang ans Gerät.
-                TextField("Name", text: $editedName)
+                TextField(LocalizedStringKey("label.name"), text: $editedName)
                     .onSubmit { model.setFriendlyName(editedName) }
                 Text(model.friendlyNameProblem
-                     ?? "Mit Return bestätigen, nur ASCII-Zeichen. macOS übernimmt den Namen "
-                     + "erst beim nächsten Verbinden und zeigt davon die ersten "
-                     + "\(MouseModel.displayedNameLength) Zeichen.")
+                     ?? String(format: String(localized: "hint.deviceName"), MouseModel.displayedNameLength))
                     .font(.caption)
                     .foregroundStyle(model.friendlyNameProblem == nil ? Color.secondary : Color.orange)
             }
@@ -66,10 +65,10 @@ struct SettingsView: View {
             .onAppear { editedName = model.friendlyName }
             .onChange(of: model.friendlyName) { _, new in editedName = new }
 
-            Section("DPI-Umschaltung per Taste") {
-                Toggle("Aktiviert", isOn: $model.cycleEnabled)
+            Section(LocalizedStringKey("section.dpiCycle")) {
+                Toggle(LocalizedStringKey("label.enabled"), isOn: $model.cycleEnabled)
 
-                Picker("Taste", selection: $model.cycleButtonCID) {
+                Picker(LocalizedStringKey("label.button"), selection: $model.cycleButtonCID) {
                     ForEach(model.availableButtons, id: \.cid) { button in
                         Text(button.name).tag(button.cid)
                     }
@@ -79,18 +78,16 @@ struct SettingsView: View {
                     model.applyCycleState()
                 }
 
-                TextField("Stufen", text: $model.cycleStepsRaw)
+                TextField(LocalizedStringKey("label.steps"), text: $model.cycleStepsRaw)
                     .onSubmit { model.refresh() }
 
                 // Der zulässige Bereich kommt vom Gerät; Werte daneben lehnt es ab.
                 Text(model.cycleStepsProblem
                      ?? {
                          let limits = model.dpiRange.map {
-                             "Erlaubt sind \($0.min) bis \($0.max) in Schritten von \($0.step). "
+                             String(format: String(localized: "hint.dpiLimits"), $0.min, $0.max, $0.step)
                          } ?? ""
-                         return limits + "Kommagetrennte Werte, mindestens zwei. Solange die "
-                             + "Umschaltung aktiv ist, löst die gewählte Taste ihre normale "
-                             + "Funktion nicht mehr aus."
+                         return limits + String(localized: "hint.dpiSteps")
                      }())
                     .font(.caption)
                     .foregroundStyle(model.cycleStepsProblem == nil ? Color.secondary : Color.orange)
@@ -98,8 +95,8 @@ struct SettingsView: View {
             // Alles hier drin greift auf die Maus zu und wäre ohne Verbindung wirkungslos.
             .disabled(!model.connected)
 
-            Section("Start") {
-                Toggle("Beim Anmelden starten", isOn: Binding(
+            Section(LocalizedStringKey("section.start")) {
+                Toggle(LocalizedStringKey("label.launchAtLogin"), isOn: Binding(
                     get: { model.launchAtLogin },
                     set: { model.setLaunchAtLogin($0) }
                 ))
@@ -108,28 +105,28 @@ struct SettingsView: View {
                         Text(problem)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Button("Öffnen") { LoginItem.openLoginItemsSettings() }
+                        Button(LocalizedStringKey("action.open")) { LoginItem.openLoginItemsSettings() }
                             .buttonStyle(.link)
                     }
                 }
             }
 
-            Section("Scrollrad") {
-                Picker("Modus", selection: Binding(
+            Section(LocalizedStringKey("section.wheel")) {
+                Picker(LocalizedStringKey("label.mode"), selection: Binding(
                     get: { model.scrollMode ?? .ratchet },
                     set: { model.setScrollMode($0) }
                 )) {
-                    Text("Gerastert").tag(SmartShiftFeature.Mode.ratchet)
-                    Text("Freilauf").tag(SmartShiftFeature.Mode.freespin)
+                    Text(LocalizedStringKey("label.ratchet")).tag(SmartShiftFeature.Mode.ratchet)
+                    Text(LocalizedStringKey("label.freespin")).tag(SmartShiftFeature.Mode.freespin)
                 }
                 .pickerStyle(.segmented)
 
-                Toggle("Scrollrichtung umkehren", isOn: Binding(
+                Toggle(LocalizedStringKey("label.invertWheel"), isOn: Binding(
                     get: { model.verticalInverted },
                     set: { model.setVerticalInverted($0) }
                 ))
 
-                Toggle("Daumenrad umkehren", isOn: Binding(
+                Toggle(LocalizedStringKey("label.invertThumb"), isOn: Binding(
                     get: { model.horizontalInverted },
                     set: { model.setHorizontalInverted($0) }
                 ))
@@ -139,8 +136,7 @@ struct SettingsView: View {
                 // statt wie feineres Scrollen. Zwischenstufen gibt es nicht (siehe README).
                 // Für Versuche bleibt `mxctl scroll hires`.
 
-                Text("Die Umkehrung wirkt im Gerät und kommt zur Scrollrichtung aus den "
-                     + "Systemeinstellungen hinzu — beide zusammen heben sich auf.")
+                Text(LocalizedStringKey("hint.invert"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

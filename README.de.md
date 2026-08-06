@@ -25,6 +25,22 @@ bei jedem Neubau ungültig machen. Nach dem ersten Start muss die Berechtigung e
 die App neu gestartet werden — bei fehlender Freigabe zeigt das Symbol ein Warndreieck und
 das Menü einen Direktlink in die Systemeinstellungen.
 
+### Sprachen
+
+Die App folgt der Systemsprache und bringt Deutsch und Englisch mit. Die Texte liegen in
+`Resources/{de,en}.lproj/Localizable.strings`; `build-app.sh` kopiert sie direkt nach
+`Contents/Resources`, sodass `Bundle.main` sie findet — SwiftUIs `Text` und
+`String(localized:)` brauchen dann kein Bundle-Argument. Ein SwiftPM-Ressourcenbündel läge
+dagegen in einem eigenen `.bundle` und müsste überall ausdrücklich adressiert werden.
+
+Die andere Sprache prüfen, ohne die Systemeinstellungen zu ändern:
+
+```
+"/Applications/Lazy Mouse.app/Contents/MacOS/LazyMouse" -AppleLanguages '(en)'
+```
+
+`mxctl` ist vorerst deutschsprachig; seine Meldungen laufen nicht über die Sprachdateien.
+
 ### Signatur und dauerhafte Freigabe
 
 macOS merkt sich die erteilte Berechtigung anhand der *Designated Requirement* der App.
