@@ -82,10 +82,18 @@ struct SettingsView: View {
                 TextField("Stufen", text: $model.cycleStepsRaw)
                     .onSubmit { model.refresh() }
 
-                Text("Kommagetrennte DPI-Werte, mindestens zwei. Solange die Umschaltung aktiv ist, "
-                     + "löst die gewählte Taste ihre normale Funktion nicht mehr aus.")
+                // Der zulässige Bereich kommt vom Gerät; Werte daneben lehnt es ab.
+                Text(model.cycleStepsProblem
+                     ?? {
+                         let limits = model.dpiRange.map {
+                             "Erlaubt sind \($0.min) bis \($0.max) in Schritten von \($0.step). "
+                         } ?? ""
+                         return limits + "Kommagetrennte Werte, mindestens zwei. Solange die "
+                             + "Umschaltung aktiv ist, löst die gewählte Taste ihre normale "
+                             + "Funktion nicht mehr aus."
+                     }())
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(model.cycleStepsProblem == nil ? Color.secondary : Color.orange)
             }
             // Alles hier drin greift auf die Maus zu und wäre ohne Verbindung wirkungslos.
             .disabled(!model.connected)

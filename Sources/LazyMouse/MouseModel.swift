@@ -26,6 +26,23 @@ final class MouseModel: ObservableObject {
     @Published var availableButtons: [(cid: Int, name: String)] = []
     @Published var friendlyName = ""
     @Published var friendlyNameProblem: String?
+    /// Zulässiger DPI-Bereich, wie ihn das Gerät meldet. Werte außerhalb oder neben dem
+    /// Raster lehnt es mit INVALID_ARGUMENT ab.
+    @Published var dpiRange: (min: Int, max: Int, step: Int)?
+
+    /// Beschreibt, was am eingetragenen Stufen-Text nicht zum Gerät passt.
+    var cycleStepsProblem: String? {
+        guard let range = dpiRange else { return nil }
+        let parsed = cycleStepsRaw.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+        guard parsed.count >= 2 else { return "Mindestens zwei Werte, durch Komma getrennt." }
+        let invalid = parsed.filter {
+            $0 < range.min || $0 > range.max || ($0 - range.min) % range.step != 0
+        }
+        guard invalid.isEmpty else {
+            return "Vom Gerät abgelehnt: \(invalid.map(String.init).joined(separator: ", "))"
+        }
+        return nil
+    }
 
     /// Zeichen, die macOS vom Gerätenamen übernimmt. Das Gerät speichert mehr (18), zeigt
     /// in den Bluetooth-Einstellungen erscheint aber nur der gekürzte Anfang.
@@ -219,7 +236,7 @@ final class MouseModel: ObservableObject {
     /// Firmware und Seriennummer ändern sich nicht von selbst — einmal beim Verbinden zu
     /// lesen genügt, statt sie in jeden Minutentakt aufzunehmen.
     private func loadStaticInfo() {
-        worker.perform { device -> (String?, String?, [(cid: Int, name: String)], String) in
+        worker.perform { device -> (String?, String?, [(cid: Int, name: String)], String, (min: Int, max: Int, step: Int)?) in
             let info = DeviceInfoFeature(device: device)
             let controls = (try? SpecialButtonsFeature(device: device).listControls()) ?? []
             let divertable = controls.filter(\.isDivertable).map { (cid: Int($0.controlID), name: $0.name) }
@@ -228,7 +245,10 @@ final class MouseModel: ObservableObject {
                 try? info.firmwareVersion(),
                 try? info.serialNumber(),
                 preferred.isEmpty ? divertable : preferred,
-                (try? FriendlyNameFeature(device: device).name()) ?? ""
+                (try? FriendlyNameFeature(device: device).name()) ?? "",
+                (try? AdjustableDPIFeature(device: device).dpiList().range).flatMap {
+                    $0.map { (min: $0.min, max: $0.max, step: $0.step) }
+                }
             )
         } completion: { [weak self] result in
             guard case .success(let values) = result else { return }
@@ -238,6 +258,7 @@ final class MouseModel: ObservableObject {
                 self.serialNumber = values.1
                 self.availableButtons = values.2
                 self.friendlyName = values.3
+                self.dpiRange = values.4
                 // Die gespeicherte Taste kann von einem anderen Gerät stammen; dann auf die
                 // erste vorhandene ausweichen, sonst zeigte die Auswahl ins Leere.
                 if !values.2.isEmpty, !values.2.contains(where: { $0.cid == self.cycleButtonCID }) {

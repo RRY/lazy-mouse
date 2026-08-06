@@ -95,7 +95,10 @@ mxctl dpi-cycle [--button <controlIdHex>] [--steps 1000,1600,2400]
 ## Switching DPI with a button
 
 `mxctl dpi-cycle` diverts a button and steps to the next DPI level on every press. The
-thumb button `0x00C3` is the default:
+thumb button `0x00C3` is the default. Valid DPI values come from the device — **200 to 8000
+in steps of 50** on the MX Master 3S; anything else is rejected with `INVALID_ARGUMENT`
+(verified at both ends and beyond). The settings window shows the range and flags entries
+the device would refuse.
 
 ```
 mxctl dpi-cycle --steps 800,1600,3200

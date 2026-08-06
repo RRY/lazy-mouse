@@ -77,7 +77,11 @@ mxctl dpi-cycle [--button <controlIdHex>] [--steps 1000,1600,2400]
 ## DPI-Umschaltung per Taste
 
 `mxctl dpi-cycle` leitet eine Taste um und schaltet bei jedem Druck zur nächsten
-DPI-Stufe. Vorbelegt ist die Daumentaste `0x00C3`:
+DPI-Stufe. Vorbelegt ist die Daumentaste `0x00C3`. Welche DPI-Werte zulässig sind, meldet
+das Gerät — bei der MX Master 3S **200 bis 8000 in Schritten von 50**; alles andere lehnt es
+mit `INVALID_ARGUMENT` ab (an beiden Grenzen und darüber hinaus geprüft). Das
+Einstellungsfenster zeigt den Bereich an und markiert Eingaben, die das Gerät verweigern
+würde.
 
 ```
 mxctl dpi-cycle --steps 800,1600,3200

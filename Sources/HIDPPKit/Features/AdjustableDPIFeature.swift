@@ -25,23 +25,35 @@ public struct AdjustableDPIFeature {
         return Int(count)
     }
 
-    /// Function 0x01: GetSensorDpiList. Werte ab 0xE000 markieren einen Bereich [start, end]
-    /// mit fester Schrittweite `step`, alle anderen 16-Bit-Werte sind einzeln wählbare DPI-Stufen.
+    /// Function 0x01: GetSensorDpiList.
+    ///
+    /// Die Antwort beginnt mit dem Sensor-Index, erst danach folgen 16-Bit-Werte. Ein Wert
+    /// mit gesetzten Bits `0xE000` ist keine DPI-Stufe, sondern eine Bereichsmarke: der
+    /// *vorhergehende* Wert ist das Minimum, die unteren 13 Bit sind die Schrittweite, der
+    /// *folgende* Wert das Maximum. Eine Null beendet die Liste.
+    ///
+    /// Bei der MX Master 3S lautet die Antwort `00 | 00C8 | E032 | 1F40`, also 200 bis 8000
+    /// in Schritten von 50.
     public func dpiList() throws -> (fixedValues: [Int], range: SensorRange?) {
         let response = try device.call(feature: AdjustableDPIFeature.featureID, function: 0x01, params: [sensorIndex])
+        guard response.params.count > 2 else { throw HIDPPError.malformedResponse }
+        let data = Array(response.params.dropFirst())
+        let words = stride(from: 0, to: data.count - 1, by: 2).map { idx -> Int in
+            (Int(data[idx]) << 8) | Int(data[idx + 1])
+        }
+
         var fixed: [Int] = []
         var range: SensorRange?
         var i = 0
-        let words = stride(from: 0, to: response.params.count - 1, by: 2).map { idx -> Int in
-            (Int(response.params[idx]) << 8) | Int(response.params[idx + 1])
-        }
         while i < words.count, words[i] != 0 {
-            if words[i] & 0xE000 == 0xE000, i + 2 < words.count {
-                let start = words[i] & 0x1FFF
-                let end = words[i + 1]
-                let step = words[i + 2]
-                range = SensorRange(min: start, max: end, step: step)
-                i += 3
+            if words[i] & 0xE000 == 0xE000 {
+                let step = words[i] & 0x1FFF
+                // Das Minimum steht bereits in der Liste und gehört zum Bereich, nicht zu
+                // den Einzelstufen.
+                let minimum = fixed.popLast() ?? 0
+                let maximum = i + 1 < words.count ? words[i + 1] : minimum
+                range = SensorRange(min: minimum, max: maximum, step: step)
+                i += 2
             } else {
                 fixed.append(words[i])
                 i += 1
