@@ -39,6 +39,27 @@ every rebuild. After the first launch the permission has to be granted and the a
 restarted — while it is missing, the icon shows a warning triangle and the menu offers a
 direct link to System Settings.
 
+### Where settings live
+
+The mouse keeps almost nothing. Measured on the device: after switching it off and on, DPI
+was back to 1000 and the inverted thumb wheel was no longer inverted. Only the device name
+(`0x0007`) survives; button diversion is volatile as well.
+
+| Setting | Held by | Survives power off |
+|---|---|---|
+| DPI, scroll mode, scroll direction | the app | no — written back on every connection |
+| Button diversion | the app | no — set again on every connection |
+| Device name | the device | yes |
+| Launch at login | the system | yes |
+
+The app therefore stores the wanted values in `UserDefaults` and writes them to the device
+whenever a connection is established. Values that were never set stay untouched, so a first
+run does not overwrite whatever the device came with.
+
+The practical consequence: without the app running, the mouse falls back to its factory
+behaviour after the next power cycle. Launch at login is less a convenience than a
+prerequisite.
+
 ### Reconnecting after sleep
 
 macOS discards the `IOHIDDevice` when the mouse disconnects and creates a **new** one when

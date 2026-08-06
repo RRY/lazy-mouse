@@ -25,6 +25,26 @@ bei jedem Neubau ungültig machen. Nach dem ersten Start muss die Berechtigung e
 die App neu gestartet werden — bei fehlender Freigabe zeigt das Symbol ein Warndreieck und
 das Menü einen Direktlink in die Systemeinstellungen.
 
+### Wo die Einstellungen liegen
+
+Die Maus behält fast nichts. Am Gerät gemessen: nach dem Aus- und Einschalten standen wieder
+1000 DPI, und das umgekehrte Daumenrad war nicht mehr umgekehrt. Dauerhaft ist allein die
+Bezeichnung (`0x0007`); auch die Tastenumleitung ist flüchtig.
+
+| Einstellung | Gehalten von | Überlebt Ausschalten |
+|---|---|---|
+| DPI, Scrollrad-Modus, Scrollrichtung | der App | nein — bei jeder Verbindung zurückgeschrieben |
+| Tastenumleitung | der App | nein — bei jeder Verbindung neu gesetzt |
+| Bezeichnung | dem Gerät | ja |
+| Autostart | dem System | ja |
+
+Die App hält die gewünschten Werte deshalb in `UserDefaults` und schreibt sie bei jeder
+Verbindung ins Gerät. Nie gesetzte Werte bleiben unberührt, damit ein erster Start nicht
+überschreibt, was am Gerät eingestellt war.
+
+Praktische Folge: Ohne laufende App fällt die Maus nach dem nächsten Einschalten auf ihr
+Werksverhalten zurück. Der Autostart ist damit weniger Bequemlichkeit als Voraussetzung.
+
 ### Wiederverbinden nach dem Ruhezustand
 
 macOS verwirft das `IOHIDDevice`, sobald die Maus verschwindet, und legt bei ihrer Rückkehr
