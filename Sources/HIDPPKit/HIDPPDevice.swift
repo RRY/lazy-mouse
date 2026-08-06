@@ -19,8 +19,8 @@ public final class HIDPPDevice {
     }
 
     @discardableResult
-    public func connect(nameHint: String? = "MX Master 3S") throws -> String {
-        try transport.connect(nameHint: nameHint)
+    public func connect(preferredProductID: Int? = HIDPPTransport.productIDMXMaster3S) throws -> String {
+        try transport.connect(preferredProductID: preferredProductID)
     }
 
     private func nextSoftwareID() -> UInt8 {

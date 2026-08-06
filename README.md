@@ -88,7 +88,7 @@ mxctl buttons list
 mxctl buttons divert <controlIdHex> <on|off>
 mxctl buttons reset <controlIdHex>
 mxctl buttons watch [seconds]
-mxctl name [new name]         # internal device name, not the one in Bluetooth settings
+mxctl name [new name]         # device name; macOS shows its first 14 chars after reconnect
 mxctl dpi-cycle [--button <controlIdHex>] [--steps 1000,1600,2400]
 ```
 
@@ -216,9 +216,10 @@ friendly name set to `Ralles Master Maus`:
 The truncation happens on the way out to the host, not in the stored field — reading
 `0x0007` back still yields all 18 characters.
 
-One consequence for the code: the transport's `nameHint` defaults to `"MX Master"`, which no
-longer matches once the device is renamed. It falls back to any Logitech device carrying a
-HID++ collection, so nothing breaks — but the hint is a preference, never a requirement.
+This is why the transport picks its device by **product ID** (`0xB034` for the MX Master 3S),
+not by product name: the name is writable, so a name-based filter stops matching the moment
+the device is renamed. If no device with that product ID is present, any Logitech device
+carrying a HID++ collection is accepted — the preference never becomes a requirement.
 
 ### Scroll resolution: 1 or 15, nothing in between
 

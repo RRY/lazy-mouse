@@ -64,11 +64,13 @@ mxctl status                  # Gerät, Batterie, DPI, Scroll-Modus
 mxctl battery                 # Ladezustand
 mxctl dpi get | set <wert>
 mxctl scroll get | set <ratchet|freespin|auto> [--threshold N]
+mxctl scroll hires <on|off>
+mxctl scroll invert <wheel|thumb> <on|off>
 mxctl buttons list
 mxctl buttons divert <controlIdHex> <on|off>
 mxctl buttons reset <controlIdHex>
 mxctl buttons watch [sekunden]
-mxctl name [neuer name]       # interner Gerätename (nicht der in den BT-Einstellungen)
+mxctl name [neuer name]       # Gerätename; macOS zeigt die ersten 14 Zeichen nach Neuverbinden
 mxctl dpi-cycle [--button <controlIdHex>] [--steps 1000,1600,2400]
 ```
 
@@ -201,9 +203,11 @@ Die Maus führt zwei getrennte Namensfelder:
 Die Kürzung passiert auf dem Weg zum Host, nicht im gespeicherten Feld — ein Rücklesen von
 `0x0007` liefert weiterhin alle 18 Zeichen.
 
-Eine Folge für den Code: Der `nameHint` des Transports steht auf `"MX Master"` und passt
-nach einer Umbenennung nicht mehr. Er fällt auf jedes Logitech-Gerät mit HID++-Collection
-zurück, es bricht also nichts — der Hinweis ist eine Bevorzugung, keine Bedingung.
+Deshalb wählt der Transport sein Gerät über die **Produkt-ID** (`0xB034` bei der
+MX Master 3S) und nicht über den Produktnamen: Der Name ist beschreibbar, ein Namensfilter
+greift nach einer Umbenennung also nicht mehr. Ist kein Gerät mit dieser Produkt-ID da,
+kommt jedes Logitech-Gerät mit HID++-Collection in Frage — aus der Bevorzugung wird nie
+eine Bedingung.
 
 ### Scrollauflösung: nur 1 oder 15, nichts dazwischen
 

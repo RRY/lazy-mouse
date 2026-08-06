@@ -47,7 +47,7 @@ public final class HIDPPWorker {
 
     /// Startet den Worker und wartet, bis die Verbindung steht oder fehlgeschlagen ist.
     @discardableResult
-    public func start(nameHint: String? = "MX Master") -> State {
+    public func start(preferredProductID: Int? = HIDPPTransport.productIDMXMaster3S) -> State {
         let thread = Thread { [weak self] in
             guard let self = self else { return }
             self.runLoop = CFRunLoopGetCurrent()
@@ -58,7 +58,7 @@ public final class HIDPPWorker {
                 DispatchQueue.main.async { handler(body) }
             }
             do {
-                let name = try transport.connect(nameHint: nameHint)
+                let name = try transport.connect(preferredProductID: preferredProductID)
                 self.transport = transport
                 self.device = HIDPPDevice(transport: transport)
                 self.state = .connected(productName: name)

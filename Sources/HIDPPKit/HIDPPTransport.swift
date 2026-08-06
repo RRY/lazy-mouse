@@ -64,8 +64,15 @@ public final class HIDPPTransport {
         inputBuffer.deallocate()
     }
 
+    /// Produkt-ID der MX Master 3S. Wird bevorzugt gewählt, wenn mehrere Logitech-Geräte
+    /// angeschlossen sind; ist sie nicht dabei, kommt jedes Gerät mit HID++-Collection in
+    /// Frage. Bewusst die Produkt-ID statt des Produktnamens: der Name ist über
+    /// `FriendlyNameFeature` änderbar, und nach einer Umbenennung griffe ein Namensfilter
+    /// nicht mehr — die Produkt-ID bleibt.
+    public static let productIDMXMaster3S = 0xB034
+
     @discardableResult
-    public func connect(nameHint: String? = "MX Master") throws -> String {
+    public func connect(preferredProductID: Int? = HIDPPTransport.productIDMXMaster3S) throws -> String {
         let mgr = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         IOHIDManagerSetDeviceMatching(mgr, [kIOHIDVendorIDKey as String: HIDPPTransport.vendorIDLogitech] as CFDictionary)
 
@@ -82,8 +89,10 @@ public final class HIDPPTransport {
         }
 
         let candidates: [IOHIDDevice]
-        if let hint = nameHint {
-            let matching = deviceSet.filter { name(of: $0).localizedCaseInsensitiveContains(hint) }
+        if let preferred = preferredProductID {
+            let matching = deviceSet.filter {
+                (IOHIDDeviceGetProperty($0, kIOHIDProductIDKey as CFString) as? Int) == preferred
+            }
             candidates = matching.isEmpty ? Array(deviceSet) : Array(matching)
         } else {
             candidates = Array(deviceSet)
