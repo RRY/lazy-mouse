@@ -43,11 +43,15 @@ struct SettingsView: View {
                             editedName = String(new.prefix(model.friendlyNameMaxLength))
                         }
                     }
-                Text(model.friendlyNameProblem
-                     ?? String(format: String(localized: "hint.deviceName"),
-                               model.friendlyNameMaxLength, MouseModel.displayedNameLength))
-                    .font(.caption)
-                    .foregroundStyle(model.friendlyNameProblem == nil ? Color.secondary : Color.orange)
+                    .help(String(format: String(localized: "hint.deviceName"),
+                                 model.friendlyNameMaxLength, MouseModel.displayedNameLength))
+                // Nur Probleme stehen auf der Maske: eine Fehlermeldung, die man erst durch
+                // Zeigen findet, wäre keine.
+                if let problem = model.friendlyNameProblem {
+                    Text(problem)
+                        .font(.caption)
+                        .foregroundStyle(Color.orange)
+                }
 
                 if let percent = model.batteryPercent {
                     LabeledContent(LocalizedStringKey("label.battery"),
@@ -74,6 +78,7 @@ struct SettingsView: View {
 
             Section(LocalizedStringKey("section.dpiCycle")) {
                 Toggle(LocalizedStringKey("label.enabled"), isOn: $model.cycleEnabled)
+                    .help(LocalizedStringKey("hint.cycleEnabled"))
 
                 Picker(LocalizedStringKey("label.button"), selection: $model.cycleButtonCID) {
                     ForEach(model.availableButtons, id: \.cid) { button in
@@ -84,20 +89,23 @@ struct SettingsView: View {
                     // Umleitung folgt der neuen Auswahl, sonst bliebe die alte Taste umgeleitet.
                     model.applyCycleState()
                 }
+                .help(LocalizedStringKey("hint.cycleButton"))
 
                 TextField(LocalizedStringKey("label.steps"), text: $model.cycleStepsRaw)
                     .onSubmit { model.refresh() }
+                    // Der zulässige Bereich kommt vom Gerät; Werte daneben lehnt es ab.
+                    .help({
+                        let limits = model.dpiRange.map {
+                            String(format: String(localized: "hint.dpiLimits"), $0.min, $0.max, $0.step)
+                        } ?? ""
+                        return limits + String(localized: "hint.dpiSteps")
+                    }())
 
-                // Der zulässige Bereich kommt vom Gerät; Werte daneben lehnt es ab.
-                Text(model.cycleStepsProblem
-                     ?? {
-                         let limits = model.dpiRange.map {
-                             String(format: String(localized: "hint.dpiLimits"), $0.min, $0.max, $0.step)
-                         } ?? ""
-                         return limits + String(localized: "hint.dpiSteps")
-                     }())
-                    .font(.caption)
-                    .foregroundStyle(model.cycleStepsProblem == nil ? Color.secondary : Color.orange)
+                if let problem = model.cycleStepsProblem {
+                    Text(problem)
+                        .font(.caption)
+                        .foregroundStyle(Color.orange)
+                }
             }
             // Alles hier drin greift auf die Maus zu und wäre ohne Verbindung wirkungslos.
             .disabled(!model.connected)
@@ -107,6 +115,7 @@ struct SettingsView: View {
                     get: { model.launchAtLogin },
                     set: { model.setLaunchAtLogin($0) }
                 ))
+                .help(LocalizedStringKey("hint.launchAtLogin"))
                 if let problem = model.launchAtLoginProblem {
                     HStack(spacing: 6) {
                         Text(problem)
@@ -127,25 +136,25 @@ struct SettingsView: View {
                     Text(LocalizedStringKey("label.freespin")).tag(SmartShiftFeature.Mode.freespin)
                 }
                 .pickerStyle(.segmented)
+                .help(LocalizedStringKey("hint.wheelMode"))
 
                 Toggle(LocalizedStringKey("label.invertWheel"), isOn: Binding(
                     get: { model.verticalInverted },
                     set: { model.setVerticalInverted($0) }
                 ))
+                .help(LocalizedStringKey("hint.invert"))
 
                 Toggle(LocalizedStringKey("label.invertThumb"), isOn: Binding(
                     get: { model.horizontalInverted },
                     set: { model.setHorizontalInverted($0) }
                 ))
+                .help(LocalizedStringKey("hint.invert"))
 
                 // Kein Schalter für die Feinauflösung: das Gerät kennt dafür nur 1 oder 15
                 // Schritte je Raste, und 15 wirkt in der Praxis wie 15-fache Geschwindigkeit
                 // statt wie feineres Scrollen. Zwischenstufen gibt es nicht (siehe README).
                 // Für Versuche bleibt `mxctl scroll hires`.
 
-                Text(LocalizedStringKey("hint.invert"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             .disabled(!model.connected)
         }

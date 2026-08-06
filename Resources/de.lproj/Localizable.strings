@@ -49,6 +49,10 @@
 "hint.dpiSteps" = "Kommagetrennte Werte, mindestens zwei. Solange die Umschaltung aktiv ist, löst die gewählte Taste ihre normale Funktion nicht mehr aus.";
 "hint.dpiLimits" = "Erlaubt sind %1$d bis %2$d in Schritten von %3$d. ";
 "hint.invert" = "Die Umkehrung wirkt im Gerät und kommt zur Scrollrichtung aus den Systemeinstellungen hinzu — beide zusammen heben sich auf.";
+"hint.cycleEnabled" = "Leitet die gewählte Taste um, damit sie die DPI weiterschaltet. Ihre angestammte Funktion entfällt so lange und kehrt beim Ausschalten zurück.";
+"hint.cycleButton" = "Angeboten werden nur Tasten, deren übliche Funktion entbehrlich ist. Links- und Rechtsklick lassen sich technisch nicht umleiten.";
+"hint.wheelMode" = "Gerastert klickt spürbar Stufe für Stufe, Freilauf dreht ungebremst weiter. Die kleine Taste oberhalb des Rades schaltet dasselbe um.";
+"hint.launchAtLogin" = "Meldet die App als Anmeldeobjekt an. Tastenumleitungen wirken nur bei laufender App, deshalb ist das für die DPI-Taste sinnvoll.";
 
 /* Fehler und Warnungen */
 "problem.nameEmpty" = "Der Name darf nicht leer sein.";
