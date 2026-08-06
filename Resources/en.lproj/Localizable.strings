@@ -22,7 +22,7 @@
 "label.firmware" = "Firmware";
 "label.serial" = "Serial number";
 "label.designation" = "Label";
-"label.enabled" = "Enabled";
+"label.disabled" = "Disabled";
 "label.button" = "Button";
 "label.steps" = "Steps";
 "label.mode" = "Mode";
@@ -50,7 +50,6 @@
 "hint.dpiLimits" = "Allowed are %1$d to %2$d in steps of %3$d. ";
 "hint.invert" = "Inversion happens in the device and adds to the scroll direction from System Settings — the two cancel each other out.";
 "hint.cycleEnabled" = "Diverts the chosen button so it steps through DPI levels. Its native function is suspended meanwhile and returns when switched off.";
-"hint.cycleButton" = "Only buttons whose usual function is expendable are offered. Left and right click cannot be diverted at all.";
 "hint.wheelMode" = "Ratcheted clicks through step by step, free spin keeps turning. The small button above the wheel toggles the same thing.";
 "hint.launchAtLogin" = "Registers the app as a login item. Button diversions only work while the app runs, so this matters for the DPI button.";
 

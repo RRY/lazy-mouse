@@ -77,19 +77,27 @@ struct SettingsView: View {
 
 
             Section(LocalizedStringKey("section.dpiCycle")) {
-                Toggle(LocalizedStringKey("label.enabled"), isOn: $model.cycleEnabled)
-                    .help(LocalizedStringKey("hint.cycleEnabled"))
-
-                Picker(LocalizedStringKey("label.button"), selection: $model.cycleButtonCID) {
+                // Schalter und Tastenauswahl in einem: die Auswahl "Deaktiviert" ersetzt
+                // den früheren Ein/Aus-Schalter, der ohne gewählte Taste ohnehin nichts tat.
+                Picker(LocalizedStringKey("label.button"), selection: Binding(
+                    get: { model.cycleEnabled ? model.cycleButtonCID : 0 },
+                    set: { selection in
+                        guard selection != 0 else {
+                            model.cycleEnabled = false
+                            return
+                        }
+                        // Erst die Taste, dann einschalten: das Setzen der Taste gibt die
+                        // vorherige frei, das Einschalten leitet die neue um.
+                        if model.cycleButtonCID != selection { model.cycleButtonCID = selection }
+                        if !model.cycleEnabled { model.cycleEnabled = true }
+                    }
+                )) {
+                    Text(LocalizedStringKey("label.disabled")).tag(0)
                     ForEach(model.availableButtons, id: \.cid) { button in
                         Text(button.name).tag(button.cid)
                     }
                 }
-                .onChange(of: model.cycleButtonCID) { _, _ in
-                    // Umleitung folgt der neuen Auswahl, sonst bliebe die alte Taste umgeleitet.
-                    model.applyCycleState()
-                }
-                .help(LocalizedStringKey("hint.cycleButton"))
+                .help(LocalizedStringKey("hint.cycleEnabled"))
 
                 TextField(LocalizedStringKey("label.steps"), text: $model.cycleStepsRaw)
                     .onSubmit { model.refresh() }
