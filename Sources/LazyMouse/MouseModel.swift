@@ -130,6 +130,9 @@ final class MouseModel: ObservableObject {
         worker.onNotification = { [weak self] body in
             Task { @MainActor in self?.handleNotification(body) }
         }
+        worker.onConnectionChange = { [weak self] isConnected in
+            Task { @MainActor in self?.handleConnectionChange(isConnected) }
+        }
         connect()
         // Nach einem Neustart steht die Umleitung im Gerät nicht mehr — erneut setzen.
         if cycleEnabled { applyCycleState() }
@@ -341,6 +344,27 @@ final class MouseModel: ObservableObject {
         worker.performSync { device in
             try SpecialButtonsFeature(device: device).resetReporting(controlID: cid)
         }
+    }
+
+    /// Verlust und Wiederkehr des Geräts, etwa rund um den Ruhezustand des Rechners.
+    private func handleConnectionChange(_ isConnected: Bool) {
+        connected = isConnected
+        guard isConnected else {
+            statusMessage = String(localized: "status.deviceNotFound")
+            // Anzeigewerte verwerfen, statt veraltete stehen zu lassen.
+            batteryPercent = nil
+            currentDPI = nil
+            hostChannel = nil
+            return
+        }
+        permissionDenied = false
+        statusMessage = String(localized: "status.connected")
+        productName = worker.productName
+        loadStaticInfo()
+        refresh()
+        // Das Gerät verliert die Umleitung beim Trennen; ohne dies bliebe die DPI-Taste
+        // nach dem Aufwachen wirkungslos, obwohl der Schalter sie als aktiv ausweist.
+        if cycleEnabled { applyCycleState() }
     }
 
     private func handleNotification(_ body: [UInt8]) {

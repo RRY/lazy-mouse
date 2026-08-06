@@ -38,6 +38,17 @@ public final class HIDPPWorker {
     /// zugestellt, damit Aufrufer direkt die Oberfläche aktualisieren können.
     public var onNotification: (([UInt8]) -> Void)?
 
+    /// Meldet Verlust und Wiederkehr des Geräts, ebenfalls auf der Hauptqueue. Nach einem
+    /// Ruhezustand legt macOS ein neues Gerät an; wer Einstellungen im Gerät hält (etwa
+    /// umgeleitete Tasten), muss sie danach erneut setzen.
+    public var onConnectionChange: ((Bool) -> Void)?
+
+    /// Produktname des zuletzt übernommenen Geräts.
+    public var productName: String {
+        if case .connected(let name) = state { return name }
+        return "—"
+    }
+
     public private(set) var state: State {
         get { stateLock.lock(); defer { stateLock.unlock() }; return _state }
         set { stateLock.lock(); _state = newValue; stateLock.unlock() }
@@ -56,6 +67,14 @@ public final class HIDPPWorker {
             transport.onNotification = { [weak self] body in
                 guard let handler = self?.onNotification else { return }
                 DispatchQueue.main.async { handler(body) }
+            }
+            transport.onConnectionChange = { [weak self] connected in
+                guard let self = self else { return }
+                self.state = connected
+                    ? .connected(productName: transport.productName)
+                    : .failed(HIDPPError.deviceNotFound)
+                guard let handler = self.onConnectionChange else { return }
+                DispatchQueue.main.async { handler(connected) }
             }
             do {
                 let name = try transport.connect(preferredProductID: preferredProductID)

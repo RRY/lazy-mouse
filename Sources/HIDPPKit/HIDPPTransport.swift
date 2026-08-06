@@ -71,8 +71,97 @@ public final class HIDPPTransport {
     /// nicht mehr — die Produkt-ID bleibt.
     public static let productIDMXMaster3S = 0xB034
 
+    /// Meldet, wenn das Gerät verschwindet oder wieder auftaucht — etwa beim Ruhezustand
+    /// des Rechners. Läuft auf dem Thread, dessen RunLoop den Manager bedient.
+    public var onConnectionChange: ((Bool) -> Void)?
+
+    private var preferredProductID: Int?
+
+    /// Meldet den Manager für Zu- und Abgänge an. Ohne das behielte der Transport nach einem
+    /// Ruhezustand die Referenz auf das alte, längst entfernte Gerät: macOS legt beim
+    /// Wiederverbinden ein neues `IOHIDDevice` an, und sämtliche Zugriffe liefen still ins
+    /// Leere, bis die Anwendung neu startet.
+    private func registerDeviceCallbacks(_ mgr: IOHIDManager) {
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        IOHIDManagerRegisterDeviceMatchingCallback(mgr, { context, _, _, device in
+            guard let context = context else { return }
+            let transport = Unmanaged<HIDPPTransport>.fromOpaque(context).takeUnretainedValue()
+            // Nur einspringen, wenn gerade kein Gerät bedient wird.
+            guard transport.device == nil else { return }
+            // Nach einem Wiederverbinden dasselbe Modell greifen wie zuvor, sonst könnte
+            // bei mehreren Logitech-Geräten das falsche übernommen werden.
+            if let wanted = transport.preferredProductID,
+               (IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int) != wanted {
+                return
+            }
+            if transport.adopt(device) {
+                transport.onConnectionChange?(true)
+            }
+        }, context)
+
+        IOHIDManagerRegisterDeviceRemovalCallback(mgr, { context, _, _, device in
+            guard let context = context else { return }
+            let transport = Unmanaged<HIDPPTransport>.fromOpaque(context).takeUnretainedValue()
+            guard transport.device == device else { return }
+            transport.device = nil
+            transport.outputElement = nil
+            transport.receivedBodies.removeAll()
+            transport.onConnectionChange?(false)
+        }, context)
+    }
+
+    /// Übernimmt ein Gerät, sofern es die HID++-Collection mitbringt.
+    @discardableResult
+    private func adopt(_ candidate: IOHIDDevice) -> Bool {
+        guard let elements = IOHIDDeviceCopyMatchingElements(candidate, nil, IOOptionBits(kIOHIDOptionsTypeNone)) as? [IOHIDElement] else {
+            return false
+        }
+        // Das HID++ Output-Array-Element: Vendor-Usage-Page, 19 Bytes à 8 Bit.
+        let out = elements.first { el in
+            IOHIDElementGetUsagePage(el) >= 0xFF00
+                && IOHIDElementGetType(el) == kIOHIDElementTypeOutput
+                && IOHIDElementGetReportCount(el) == UInt32(HIDPPTransport.reportBodyLength)
+                && IOHIDElementGetReportSize(el) == 8
+        }
+        guard let outputElement = out else { return false }
+
+        IOHIDDeviceScheduleWithRunLoop(candidate, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+        guard IOHIDDeviceOpen(candidate, IOOptionBits(kIOHIDOptionsTypeNone)) == kIOReturnSuccess else {
+            return false
+        }
+
+        IOHIDDeviceRegisterInputReportCallback(
+            candidate,
+            inputBuffer,
+            inputBufferSize,
+            { context, _, _, _, reportID, report, reportLength in
+                guard let context = context, UInt8(truncatingIfNeeded: reportID) == HIDPPTransport.reportID else { return }
+                let transport = Unmanaged<HIDPPTransport>.fromOpaque(context).takeUnretainedValue()
+                // Der Callback liefert die Report-ID als erstes Byte mit.
+                let raw = Array(UnsafeBufferPointer(start: report, count: reportLength))
+                guard raw.count > 1 else { return }
+                let body = Array(raw.dropFirst())
+                transport.receivedBodies.append(body)
+                if body.count >= 3, (body[2] & 0x0F) == 0 {
+                    transport.onNotification?(body)
+                }
+            },
+            Unmanaged.passUnretained(self).toOpaque()
+        )
+
+        device = candidate
+        // Die tatsächlich übernommene Produkt-ID wird zur Vorgabe für spätere Zugänge —
+        // auch dann, wenn beim ersten Verbinden auf ein anderes Modell ausgewichen wurde.
+        preferredProductID = IOHIDDeviceGetProperty(candidate, kIOHIDProductIDKey as CFString) as? Int
+        self.outputElement = outputElement
+        productName = (IOHIDDeviceGetProperty(candidate, kIOHIDProductKey as CFString) as? String) ?? "Logitech device"
+        vendorUsagePage = IOHIDElementGetUsagePage(outputElement)
+        return true
+    }
+
     @discardableResult
     public func connect(preferredProductID: Int? = HIDPPTransport.productIDMXMaster3S) throws -> String {
+        self.preferredProductID = preferredProductID
         let mgr = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         IOHIDManagerSetDeviceMatching(mgr, [kIOHIDVendorIDKey as String: HIDPPTransport.vendorIDLogitech] as CFDictionary)
 
@@ -80,12 +169,13 @@ public final class HIDPPTransport {
         guard openResult == kIOReturnSuccess else {
             throw HIDPPError.managerOpenFailed(openResult)
         }
+        self.manager = mgr
+        registerDeviceCallbacks(mgr)
+        // Der Manager muss auf der RunLoop liegen, sonst kämen die Zu-/Abgangsmeldungen nie an.
+        IOHIDManagerScheduleWithRunLoop(mgr, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+
         guard let deviceSet = IOHIDManagerCopyDevices(mgr) as? Set<IOHIDDevice>, !deviceSet.isEmpty else {
             throw HIDPPError.deviceNotFound
-        }
-
-        func name(of d: IOHIDDevice) -> String {
-            (IOHIDDeviceGetProperty(d, kIOHIDProductKey as CFString) as? String) ?? "Logitech-Gerät"
         }
 
         let candidates: [IOHIDDevice]
@@ -98,54 +188,15 @@ public final class HIDPPTransport {
             candidates = Array(deviceSet)
         }
 
-        for candidate in candidates {
-            guard let elements = IOHIDDeviceCopyMatchingElements(candidate, nil, IOOptionBits(kIOHIDOptionsTypeNone)) as? [IOHIDElement] else {
-                continue
-            }
-            // Das HID++ Output-Array-Element: Vendor-Usage-Page, 19 Bytes à 8 Bit.
-            let out = elements.first { el in
-                IOHIDElementGetUsagePage(el) >= 0xFF00
-                    && IOHIDElementGetType(el) == kIOHIDElementTypeOutput
-                    && IOHIDElementGetReportCount(el) == UInt32(HIDPPTransport.reportBodyLength)
-                    && IOHIDElementGetReportSize(el) == 8
-            }
-            guard let outputElement = out else { continue }
-
-            IOHIDDeviceScheduleWithRunLoop(candidate, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
-            let openDeviceResult = IOHIDDeviceOpen(candidate, IOOptionBits(kIOHIDOptionsTypeNone))
-            guard openDeviceResult == kIOReturnSuccess else {
-                throw HIDPPError.deviceOpenFailed(openDeviceResult)
-            }
-
-            IOHIDDeviceRegisterInputReportCallback(
-                candidate,
-                inputBuffer,
-                inputBufferSize,
-                { context, _, _, _, reportID, report, reportLength in
-                    guard let context = context, UInt8(truncatingIfNeeded: reportID) == HIDPPTransport.reportID else { return }
-                    let transport = Unmanaged<HIDPPTransport>.fromOpaque(context).takeUnretainedValue()
-                    // Der Callback liefert die Report-ID als erstes Byte mit.
-                    let raw = Array(UnsafeBufferPointer(start: report, count: reportLength))
-                    guard raw.count > 1 else { return }
-                    let body = Array(raw.dropFirst())
-                    transport.receivedBodies.append(body)
-                    if body.count >= 3, (body[2] & 0x0F) == 0 {
-                        transport.onNotification?(body)
-                    }
-                },
-                Unmanaged.passUnretained(self).toOpaque()
-            )
-
-            self.manager = mgr
-            self.device = candidate
-            self.outputElement = outputElement
-            self.productName = name(of: candidate)
-            self.vendorUsagePage = IOHIDElementGetUsagePage(outputElement)
+        for candidate in candidates where adopt(candidate) {
             return productName
         }
 
         throw HIDPPError.deviceNotFound
     }
+
+    /// Ob gerade ein Gerät bedient wird.
+    public var isConnected: Bool { device != nil }
 
     /// Prüft, ob ein empfangener Body die Antwort auf einen Request mit dieser Software-ID ist.
     ///

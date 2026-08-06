@@ -39,6 +39,21 @@ every rebuild. After the first launch the permission has to be granted and the a
 restarted — while it is missing, the icon shows a warning triangle and the menu offers a
 direct link to System Settings.
 
+### Reconnecting after sleep
+
+macOS discards the `IOHIDDevice` when the mouse disconnects and creates a **new** one when
+it comes back — after sleep, after the mouse is switched off and on, after a channel change.
+A transport that grabs the device once therefore writes into the void from then on, and
+because failed refreshes were dropped silently the UI kept showing stale values as if
+nothing was wrong.
+
+`HIDPPTransport` therefore registers matching and removal callbacks on the IOHID manager
+and adopts the new device on its own. On reconnect the app re-reads everything and **sets
+the button diversion again** — the device forgets it when disconnecting, so the DPI button
+would otherwise be dead while the toggle still claimed it was active. The product ID of the
+adopted device becomes the preference for later arrivals, so a second Logitech device cannot
+be picked up by mistake.
+
 ### Languages
 
 The app follows the system language and ships German and English. Strings live in

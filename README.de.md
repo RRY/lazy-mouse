@@ -25,6 +25,21 @@ bei jedem Neubau ungültig machen. Nach dem ersten Start muss die Berechtigung e
 die App neu gestartet werden — bei fehlender Freigabe zeigt das Symbol ein Warndreieck und
 das Menü einen Direktlink in die Systemeinstellungen.
 
+### Wiederverbinden nach dem Ruhezustand
+
+macOS verwirft das `IOHIDDevice`, sobald die Maus verschwindet, und legt bei ihrer Rückkehr
+ein **neues** an — nach dem Ruhezustand, nach Aus- und Einschalten, nach einem Kanalwechsel.
+Ein Transport, der das Gerät einmalig greift, schreibt danach ins Leere; und weil
+fehlgeschlagene Aktualisierungen stillschweigend verworfen wurden, zeigte die Oberfläche
+weiter alte Werte, als sei alles in Ordnung.
+
+`HIDPPTransport` meldet sich deshalb beim IOHID-Manager für Zu- und Abgänge an und übernimmt
+das neue Gerät selbständig. Bei Wiederkehr liest die App alles neu und **setzt die
+Tastenumleitung erneut** — die vergisst das Gerät beim Trennen, die DPI-Taste wäre sonst
+wirkungslos, obwohl der Schalter sie als aktiv ausweist. Die Produkt-ID des übernommenen
+Geräts wird zur Vorgabe für spätere Zugänge, damit nicht versehentlich ein zweites
+Logitech-Gerät eingesammelt wird.
+
 ### Sprachen
 
 Die App folgt der Systemsprache und bringt Deutsch und Englisch mit. Die Texte liegen in
