@@ -11,19 +11,17 @@
 
 /* Abschnitte im Einstellungsfenster */
 "section.device" = "Gerät";
-"section.deviceName" = "Gerätename";
 "section.dpiCycle" = "DPI-Umschaltung per Taste";
 "section.start" = "Start";
 "section.wheel" = "Scrollrad";
 
 /* Beschriftungen */
-"label.status" = "Status";
 "label.battery" = "Batterie";
 "label.currentDPI" = "Aktuelle DPI";
 "label.channel" = "Kanal";
 "label.firmware" = "Firmware";
 "label.serial" = "Seriennummer";
-"label.name" = "Name";
+"label.designation" = "Bezeichnung";
 "label.enabled" = "Aktiviert";
 "label.button" = "Taste";
 "label.steps" = "Stufen";
@@ -47,7 +45,7 @@
 
 /* Hinweise */
 "hint.permissionRestart" = "Nach dem Erteilen muss die App neu gestartet werden.";
-"hint.deviceName" = "Mit Return bestätigen, nur ASCII-Zeichen. macOS übernimmt den Namen erst beim nächsten Verbinden und zeigt davon die ersten %d Zeichen.";
+"hint.deviceName" = "Mit Return bestätigen, höchstens %1$d ASCII-Zeichen. macOS übernimmt den Namen erst beim nächsten Verbinden und zeigt davon die ersten %2$d Zeichen.";
 "hint.dpiSteps" = "Kommagetrennte Werte, mindestens zwei. Solange die Umschaltung aktiv ist, löst die gewählte Taste ihre normale Funktion nicht mehr aus.";
 "hint.dpiLimits" = "Erlaubt sind %1$d bis %2$d in Schritten von %3$d. ";
 "hint.invert" = "Die Umkehrung wirkt im Gerät und kommt zur Scrollrichtung aus den Systemeinstellungen hinzu — beide zusammen heben sich auf.";

@@ -31,7 +31,24 @@ struct SettingsView: View {
             }
 
             Section(LocalizedStringKey("section.device")) {
-                LabeledContent(LocalizedStringKey("label.status"), value: model.connected ? model.productName : model.statusMessage)
+                // Ersetzt das frühere Statusfeld: das zeigte denselben Namen nochmals, den
+                // der Abschnitt darunter schon zum Bearbeiten anbot. Ob eine Verbindung
+                // besteht, steht bei Problemen ohnehin oben im Fenster.
+                TextField(LocalizedStringKey("label.designation"), text: $editedName)
+                    .onSubmit { model.setFriendlyName(editedName) }
+                    .onChange(of: editedName) { _, new in
+                        // Das Gerät kürzt zu lange Namen stillschweigend; die Grenze gehört
+                        // deshalb schon ins Eingabefeld.
+                        if new.count > model.friendlyNameMaxLength {
+                            editedName = String(new.prefix(model.friendlyNameMaxLength))
+                        }
+                    }
+                Text(model.friendlyNameProblem
+                     ?? String(format: String(localized: "hint.deviceName"),
+                               model.friendlyNameMaxLength, MouseModel.displayedNameLength))
+                    .font(.caption)
+                    .foregroundStyle(model.friendlyNameProblem == nil ? Color.secondary : Color.orange)
+
                 if let percent = model.batteryPercent {
                     LabeledContent(LocalizedStringKey("label.battery"),
                                    value: String(format: String(localized: model.charging ? "value.batteryCharging" : "value.battery"), percent))
@@ -50,20 +67,10 @@ struct SettingsView: View {
                         .textSelection(.enabled)
                 }
             }
-
-            Section(LocalizedStringKey("section.deviceName")) {
-                // Erst beim Bestätigen schreiben: sonst ginge pro Tastendruck ein
-                // Schreibvorgang ans Gerät.
-                TextField(LocalizedStringKey("label.name"), text: $editedName)
-                    .onSubmit { model.setFriendlyName(editedName) }
-                Text(model.friendlyNameProblem
-                     ?? String(format: String(localized: "hint.deviceName"), MouseModel.displayedNameLength))
-                    .font(.caption)
-                    .foregroundStyle(model.friendlyNameProblem == nil ? Color.secondary : Color.orange)
-            }
             .disabled(!model.connected)
             .onAppear { editedName = model.friendlyName }
             .onChange(of: model.friendlyName) { _, new in editedName = new }
+
 
             Section(LocalizedStringKey("section.dpiCycle")) {
                 Toggle(LocalizedStringKey("label.enabled"), isOn: $model.cycleEnabled)
