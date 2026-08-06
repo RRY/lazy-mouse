@@ -75,7 +75,7 @@ public final class HIDPPWorker {
                 self.drainJobs()
             }
         }
-        thread.name = "de.ryback.mxmenu.hid"
+        thread.name = "de.ryback.lazymouse.hid"
         thread.start()
         self.thread = thread
         startupSemaphore.wait()

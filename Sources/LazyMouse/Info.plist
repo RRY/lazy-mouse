@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>MXMenu</string>
+    <string>LazyMouse</string>
     <key>CFBundleIdentifier</key>
-    <string>de.ryback.mxmenu</string>
+    <string>de.ryback.lazymouse</string>
     <key>CFBundleName</key>
-    <string>MX Menu</string>
+    <string>Lazy Mouse</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

@@ -18,9 +18,9 @@ let package = Package(
             path: "Sources/mxctl"
         ),
         .executableTarget(
-            name: "MXMenu",
+            name: "LazyMouse",
             dependencies: ["HIDPPKit"],
-            path: "Sources/MXMenu",
+            path: "Sources/LazyMouse",
             exclude: ["Info.plist"]
         ),
         .executableTarget(

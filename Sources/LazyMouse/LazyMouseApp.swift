@@ -3,7 +3,7 @@ import AppKit
 import HIDPPKit
 
 @main
-struct MXMenuApp: App {
+struct LazyMouseApp: App {
     @StateObject private var model = MouseModel()
 
     var body: some Scene {
