@@ -39,7 +39,8 @@ Die andere Sprache prüfen, ohne die Systemeinstellungen zu ändern:
 "/Applications/Lazy Mouse.app/Contents/MacOS/LazyMouse" -AppleLanguages '(en)'
 ```
 
-`mxctl` ist vorerst deutschsprachig; seine Meldungen laufen nicht über die Sprachdateien.
+`mxctl` ist ausschließlich englisch — bei einem Kommandozeilenwerkzeug erschweren
+übersetzte Meldungen das Suchen danach.
 
 ### Signatur und dauerhafte Freigabe
 

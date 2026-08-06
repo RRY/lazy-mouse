@@ -29,16 +29,16 @@ public struct SpecialButtonsFeature {
     /// die Auswahl auch bei fremden Modellen brauchbar bleibt.
     public static func name(forControlID cid: UInt16) -> String {
         switch cid {
-        case 0x0050: return "Linksklick"
-        case 0x0051: return "Rechtsklick"
-        case 0x0052: return "Mittlere Taste"
-        case 0x0053: return "Zurück"
-        case 0x0056: return "Vorwärts"
-        case 0x005B: return "Daumentaste"
-        case 0x00C3: return "Gestentaste (Daumen)"
-        case 0x00C4: return "Taste am Scrollrad"
-        case 0x00D7: return "Virtuelle Gestentaste"
-        default: return String(format: "Taste 0x%04X", cid)
+        case 0x0050: return "Left click"
+        case 0x0051: return "Right click"
+        case 0x0052: return "Middle button"
+        case 0x0053: return "Back"
+        case 0x0056: return "Forward"
+        case 0x005B: return "Thumb button"
+        case 0x00C3: return "Gesture button (thumb)"
+        case 0x00C4: return "Button at the wheel"
+        case 0x00D7: return "Virtual gesture button"
+        default: return String(format: "Button 0x%04X", cid)
         }
     }
 

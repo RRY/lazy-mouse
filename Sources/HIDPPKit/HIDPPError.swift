@@ -25,21 +25,21 @@ public enum HIDPPError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
         case .managerOpenFailed(let code):
-            return "IOHIDManager konnte nicht geöffnet werden (IOReturn \(code))"
+            return "Could not open IOHIDManager (IOReturn \(code))"
         case .deviceNotFound:
-            return "Keine passende Logitech-Maus gefunden. Ist sie per Bluetooth gekoppelt und eingeschaltet?"
+            return "No matching Logitech mouse found. Is it paired over Bluetooth and switched on?"
         case .deviceOpenFailed(let code):
-            return "HID-Gerät konnte nicht geöffnet werden (IOReturn \(code))"
+            return "Could not open HID device (IOReturn \(code))"
         case .notConnected:
-            return "Kein Gerät verbunden. Zuerst connect() aufrufen."
+            return "No device connected. Call connect() first."
         case .sendFailed(let code):
-            return "Senden des HID++ Reports fehlgeschlagen (IOReturn \(code))"
+            return "Sending the HID++ report failed (IOReturn \(code))"
         case .timeout:
-            return "Zeitüberschreitung beim Warten auf Antwort der Maus"
+            return "Timed out waiting for the mouse to answer"
         case .protocolError(let featureIndex, let function, let errorCode):
-            return "HID++ Fehler: feature=\(featureIndex) function=\(function) code=0x\(String(errorCode, radix: 16))"
+            return "HID++ error: feature=\(featureIndex) function=\(function) code=0x\(String(errorCode, radix: 16))"
         case .malformedResponse:
-            return "Unerwartetes/zu kurzes HID++ Antwortformat"
+            return "Unexpected or too short HID++ response"
         }
     }
 }

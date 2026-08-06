@@ -53,7 +53,8 @@ To check the other language without changing system settings:
 "/Applications/Lazy Mouse.app/Contents/MacOS/LazyMouse" -AppleLanguages '(en)'
 ```
 
-`mxctl` is German-only for now; its messages are not routed through the string files.
+`mxctl` is English only — a command line tool with translated output would make its
+messages harder to search for.
 
 ### Signing and a permission that sticks
 

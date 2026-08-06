@@ -11,22 +11,22 @@ func connectedDevice() -> HIDPPDevice {
     let device = HIDPPDevice(transport: transport)
     do {
         let name = try device.connect()
-        FileHandle.standardError.write("Verbunden mit: \(name)\n".data(using: .utf8)!)
+        FileHandle.standardError.write("Connected to: \(name)\n".data(using: .utf8)!)
     } catch {
-        fail("Verbindung fehlgeschlagen: \(error)")
+        fail("Connection failed: \(error)")
     }
     return device
 }
 
 func printUsage() {
     print("""
-    mxctl — schlanker HID++ Konfigurator für die Logitech MX Master 3S (Bluetooth)
+    mxctl — a lean HID++ configurator for the Logitech MX Master 3S (Bluetooth)
 
-    Verwendung:
+    Usage:
       mxctl status
       mxctl battery
       mxctl dpi get
-      mxctl dpi set <wert>
+      mxctl dpi set <value>
       mxctl scroll get
       mxctl scroll set <ratchet|freespin|auto> [--threshold N]
       mxctl scroll hires <on|off>
@@ -34,12 +34,13 @@ func printUsage() {
       mxctl buttons list
       mxctl buttons divert <controlIdHex> <on|off>
       mxctl buttons reset <controlIdHex>
-      mxctl buttons watch [sekunden]
+      mxctl buttons watch [seconds]
+      mxctl name [new name]
       mxctl dpi-cycle [--button <controlIdHex>] [--steps 1000,1600,2400]
 
-    Hinweis: Die MX Master 3S kann Tasten nicht geräteseitig umbelegen. Eine umgeleitete
-    ("diverted") Taste löst ihre native Aktion nicht mehr aus, sondern meldet den Druck an
-    den Host — die eigentliche Aktion führt dann ein laufender Prozess aus, siehe dpi-cycle.
+    Note: the MX Master 3S cannot remap buttons on the device. A diverted button no longer
+    triggers its native action but reports the press to the host — the action itself is then
+    carried out by a running process, see dpi-cycle.
     """)
 }
 
@@ -52,7 +53,7 @@ guard let command = args.first else {
 switch command {
 case "status":
     let device = connectedDevice()
-    print("Produkt: \(device.productName)")
+    print("Product: \(device.productName)")
     if let name = try? FriendlyNameFeature(device: device).name() {
         print("Name: \(name)")
     }
@@ -61,28 +62,28 @@ case "status":
         print("Firmware: \(firmware ?? "?")")
     }
     if let serial = try? info.serialNumber() {
-        print("Seriennummer: \(serial ?? "?")")
+        print("Serial number: \(serial ?? "?")")
     }
     if let host = try? HostChannelFeature(device: device).current() {
-        print("Kanal: \(host.channel) von \(host.total)")
+        print("Channel: \(host.channel) of \(host.total)")
     }
     if let battery = try? BatteryFeature(device: device).status() {
-        print("Batterie: \(battery.percentage)% (\(battery.chargingStatus))")
+        print("Battery: \(battery.percentage)% (\(battery.chargingStatus))")
     }
     if let dpi = try? AdjustableDPIFeature(device: device).currentDPI() {
-        print("DPI: \(dpi.current) (Standard: \(dpi.default))")
+        print("DPI: \(dpi.current) (default: \(dpi.default))")
     }
     if let scroll = try? SmartShiftFeature(device: device).status() {
-        print("Scrollrad: \(scroll.mode)")
+        print("Wheel: \(scroll.mode)")
     }
 
 case "battery":
     let device = connectedDevice()
     do {
         let status = try BatteryFeature(device: device).status()
-        print("\(status.percentage)% — \(status.chargingStatus)\(status.externalPowerConnected ? ", Netzteil verbunden" : "")")
+        print("\(status.percentage)% — \(status.chargingStatus)\(status.externalPowerConnected ? ", external power" : "")")
     } catch {
-        fail("Batteriestatus konnte nicht gelesen werden: \(error)")
+        fail("Could not read battery status: \(error)")
     }
 
 case "dpi":
@@ -93,25 +94,25 @@ case "dpi":
     case "get":
         do {
             let dpi = try dpiFeature.currentDPI()
-            print("Aktuell: \(dpi.current) DPI (Standard: \(dpi.default))")
+            print("Current: \(dpi.current) DPI (default: \(dpi.default))")
             if let list = try? dpiFeature.dpiList() {
                 if let range = list.range {
-                    print("Gültiger Bereich: \(range.min)–\(range.max), Schrittweite \(range.step)")
+                    print("Valid range: \(range.min)–\(range.max), step \(range.step)")
                 }
                 if !list.fixedValues.isEmpty {
-                    print("Feste Stufen: \(list.fixedValues)")
+                    print("Fixed steps: \(list.fixedValues)")
                 }
             }
         } catch {
-            fail("DPI konnte nicht gelesen werden: \(error)")
+            fail("Could not read DPI: \(error)")
         }
     case "set":
-        guard args.count >= 3, let value = Int(args[2]) else { fail("Nutzung: mxctl dpi set <wert>") }
+        guard args.count >= 3, let value = Int(args[2]) else { fail("Usage: mxctl dpi set <value>") }
         do {
             try dpiFeature.setDPI(value)
-            print("DPI auf \(value) gesetzt.")
+            print("DPI set to \(value).")
         } catch {
-            fail("DPI konnte nicht gesetzt werden: \(error)")
+            fail("Could not set DPI: \(error)")
         }
     default:
         printUsage(); exit(1)
@@ -125,30 +126,30 @@ case "scroll":
     case "get":
         do {
             let status = try smartShift.status()
-            print("Modus: \(status.mode), Auto-Schwelle: \(status.autoDisengageThreshold)")
+            print("Mode: \(status.mode), auto threshold: \(status.autoDisengageThreshold)")
             let wheel = HiResWheelFeature(device: device)
             if let inverted = try? wheel.isInverted(), let hires = try? wheel.isHighResolution() {
-                print("Vertikal umgekehrt: \(inverted ? "ja" : "nein"), Feinauflösung: \(hires ? "ein" : "aus")")
+                print("Wheel inverted: \(inverted ? "yes" : "no"), high resolution: \(hires ? "on" : "off")")
             }
             if let thumb = try? ThumbwheelFeature(device: device).isInverted() {
-                print("Daumenrad umgekehrt: \(thumb ? "ja" : "nein")")
+                print("Thumb wheel inverted: \(thumb ? "yes" : "no")")
             }
         } catch {
-            fail("Scroll-Status konnte nicht gelesen werden: \(error)")
+            fail("Could not read scroll status: \(error)")
         }
     case "hires":
         guard args.count >= 3, ["on", "off"].contains(args[2]) else {
-            fail("Nutzung: mxctl scroll hires <on|off>")
+            fail("Usage: mxctl scroll hires <on|off>")
         }
         do {
             try HiResWheelFeature(device: device).setHighResolution(args[2] == "on")
-            print("Feinauflösung \(args[2] == "on" ? "eingeschaltet" : "ausgeschaltet").")
+            print("High resolution \(args[2] == "on" ? "enabled" : "disabled").")
         } catch {
-            fail("Feinauflösung konnte nicht gesetzt werden: \(error)")
+            fail("Could not set high resolution: \(error)")
         }
     case "invert":
         guard args.count >= 4, ["wheel", "thumb"].contains(args[2]), ["on", "off"].contains(args[3]) else {
-            fail("Nutzung: mxctl scroll invert <wheel|thumb> <on|off>")
+            fail("Usage: mxctl scroll invert <wheel|thumb> <on|off>")
         }
         do {
             let enabled = args[3] == "on"
@@ -157,18 +158,18 @@ case "scroll":
             } else {
                 try ThumbwheelFeature(device: device).setInverted(enabled)
             }
-            print("Umkehrung für \(args[2]) \(enabled ? "ein" : "aus").")
+            print("Inversion for \(args[2]) \(enabled ? "on" : "off").")
         } catch {
-            fail("Umkehrung konnte nicht gesetzt werden: \(error)")
+            fail("Could not set inversion: \(error)")
         }
     case "set":
-        guard args.count >= 3 else { fail("Nutzung: mxctl scroll set <ratchet|freespin|auto> [--threshold N]") }
+        guard args.count >= 3 else { fail("Usage: mxctl scroll set <ratchet|freespin|auto> [--threshold N]") }
         let mode: SmartShiftFeature.Mode
         switch args[2] {
         case "ratchet": mode = .ratchet
         case "freespin": mode = .freespin
         case "auto": mode = .auto
-        default: fail("Unbekannter Modus '\(args[2])' — erlaubt: ratchet, freespin, auto")
+        default: fail("Unknown mode '\(args[2])' — allowed: ratchet, freespin, auto")
         }
         var threshold = 0
         if let idx = args.firstIndex(of: "--threshold"), args.count > idx + 1, let t = Int(args[idx + 1]) {
@@ -176,9 +177,9 @@ case "scroll":
         }
         do {
             try smartShift.setMode(mode, threshold: threshold)
-            print("Scrollrad-Modus auf \(mode) gesetzt.")
+            print("Wheel mode set to \(mode).")
         } catch {
-            fail("Scroll-Modus konnte nicht gesetzt werden: \(error)")
+            fail("Could not set wheel mode: \(error)")
         }
     default:
         printUsage(); exit(1)
@@ -198,55 +199,55 @@ case "buttons":
                 // Aktuelle Zuordnung nur ausweisen, wenn sie von der nativen abweicht.
                 let remapNote: String
                 if let current = current, current.remappedTaskID != 0, current.remappedTaskID != c.taskID {
-                    remapNote = "  -> aktuell \(hex(current.remappedTaskID))"
+                    remapNote = "  -> currently \(hex(current.remappedTaskID))"
                 } else {
                     remapNote = ""
                 }
-                let divertNote = c.isDivertable ? "" : "  (nicht umleitbar)"
+                let divertNote = c.isDivertable ? "" : "  (not divertable)"
                 print("CID \(hex(c.controlID))  \(c.name.padding(toLength: 22, withPad: " ", startingAt: 0))"
                       + "TID \(hex(c.taskID))  flags=0x\(String(c.flags, radix: 16))\(divertNote)\(remapNote)")
             }
         } catch {
-            fail("Tasten konnten nicht gelesen werden: \(error)")
+            fail("Could not read buttons: \(error)")
         }
     case "divert":
         guard args.count >= 4,
               let cid = UInt16(args[2].replacingOccurrences(of: "0x", with: ""), radix: 16),
               ["on", "off"].contains(args[3]) else {
-            fail("Nutzung: mxctl buttons divert <controlIdHex> <on|off>")
+            fail("Usage: mxctl buttons divert <controlIdHex> <on|off>")
         }
         do {
             try buttons.setDivert(controlID: cid, enabled: args[3] == "on")
-            print("Control \(args[2]): Umleitung \(args[3] == "on" ? "aktiviert" : "deaktiviert").")
+            print("Control \(args[2]): diversion \(args[3] == "on" ? "enabled" : "disabled").")
         } catch {
-            fail("Umleitung fehlgeschlagen: \(error)")
+            fail("Diversion failed: \(error)")
         }
     case "reset":
         guard args.count >= 3,
               let cid = UInt16(args[2].replacingOccurrences(of: "0x", with: ""), radix: 16) else {
-            fail("Nutzung: mxctl buttons reset <controlIdHex>")
+            fail("Usage: mxctl buttons reset <controlIdHex>")
         }
         do {
             try buttons.resetReporting(controlID: cid)
-            print("Control \(args[2]) auf Auslieferungszustand zurückgesetzt.")
+            print("Control \(args[2]) reset to factory state.")
         } catch {
-            fail("Zurücksetzen fehlgeschlagen: \(error)")
+            fail("Reset failed: \(error)")
         }
     case "watch":
         let seconds = args.count >= 3 ? (Double(args[2]) ?? 10) : 10
         // Tastendrücke kommen als Notification des Buttons-Features; alles andere bleibt roh.
         let buttonsIndex = try? device.featureIndex(for: SpecialButtonsFeature.featureID)
-        print("Lausche \(Int(seconds))s auf Notifications … (umgeleitete Tasten drücken)")
+        print("Listening \(Int(seconds))s for notifications … (press diverted buttons)")
         device.listen(duration: seconds) { body in
             if let buttonsIndex = buttonsIndex, body.count >= 5, body[1] == buttonsIndex {
                 let cid = (UInt16(body[3]) << 8) | UInt16(body[4])
                 // Eine Meldung mit CID 0 signalisiert das Loslassen der zuvor gemeldeten Taste.
-                print(cid == 0 ? "  losgelassen" : String(format: "  gedrückt  CID 0x%04X", cid))
+                print(cid == 0 ? "  released" : String(format: "  pressed  CID 0x%04X", cid))
             } else {
                 print("  Notification: \(body.map { String(format: "%02X", $0) }.joined(separator: " "))")
             }
         }
-        print("Fertig.")
+        print("Done.")
     default:
         printUsage(); exit(1)
     }
@@ -260,9 +261,9 @@ case "name":
     }
     do {
         try feature.setName(args[1])
-        print("Name gesetzt: \(try feature.name())")
+        print("Name set: \(try feature.name())")
     } catch {
-        fail("Name konnte nicht gesetzt werden: \(error)")
+        fail("Could not set name: \(error)")
     }
 
 case "dpi-cycle":
@@ -276,7 +277,7 @@ case "dpi-cycle":
     }
     if let idx = args.firstIndex(of: "--steps"), args.count > idx + 1 {
         let parsed = args[idx + 1].split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
-        if parsed.count >= 2 { steps = parsed } else { fail("--steps braucht mindestens zwei Werte, z. B. 1000,1600,2400") }
+        if parsed.count >= 2 { steps = parsed } else { fail("--steps needs at least two values, e.g. 1000,1600,2400") }
     }
 
     let device = connectedDevice()
@@ -291,7 +292,7 @@ case "dpi-cycle":
     do {
         try buttons.setDivert(controlID: buttonCID, enabled: true)
     } catch {
-        fail("Taste konnte nicht umgeleitet werden: \(error)")
+        fail("Could not divert button: \(error)")
     }
 
     // Aufräumen ist Pflicht: eine umgeleitete Taste bleibt sonst dauerhaft wirkungslos.
@@ -310,9 +311,9 @@ case "dpi-cycle":
     sigintSource.resume()
     sigtermSource.resume()
 
-    print(String(format: "DPI-Umschaltung aktiv auf Taste 0x%04X. Stufen: %@ (aktuell %d).",
+    print(String(format: "DPI switching active on button 0x%04X. Steps: %@ (currently %d).",
                  buttonCID, steps.map(String.init).joined(separator: ", "), originalDPI))
-    print("Beenden mit Strg-C — die Taste wird dabei zurückgesetzt.")
+    print("Stop with Ctrl-C — the button is reset on the way out.")
 
     device.listen(duration: .greatestFiniteMagnitude, shouldStop: { stopping }) { body in
         guard let buttonsIndex = buttonsIndex, body.count >= 5, body[1] == buttonsIndex else { return }
@@ -324,12 +325,12 @@ case "dpi-cycle":
             try dpiFeature.setDPI(steps[stepIndex])
             print("  DPI \(steps[stepIndex])")
         } catch {
-            print("  DPI-Wechsel fehlgeschlagen: \(error)")
+            print("  DPI change failed: \(error)")
         }
     }
 
     cleanup()
-    print("Beendet, Taste und DPI zurückgesetzt.")
+    print("Stopped, button and DPI reset.")
 
 default:
     printUsage()
