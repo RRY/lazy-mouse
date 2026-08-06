@@ -116,6 +116,36 @@ final class MouseModel: ObservableObject {
         static let cycleEnabled = "cycleEnabled"
         static let cycleButtonCID = "cycleButtonCID"
         static let cycleSteps = "cycleSteps"
+        // Gewünschte Gerätewerte. Die Maus verliert sie beim Ausschalten, deshalb hält die
+        // App sie und schreibt sie bei jeder Verbindung zurück.
+        static let desiredDPI = "desiredDPI"
+        static let desiredScrollMode = "desiredScrollMode"
+        static let desiredVerticalInverted = "desiredVerticalInverted"
+        static let desiredHorizontalInverted = "desiredHorizontalInverted"
+    }
+
+    /// Schreibt die gemerkten Werte ins Gerät.
+    ///
+    /// Nötig, weil die MX Master 3S DPI und Scrollrichtung nur bis zum Ausschalten behält —
+    /// am Gerät nachgemessen: nach einem Aus/Ein standen 1000 DPI und eine nicht mehr
+    /// umgekehrte Daumenradrichtung. Ohne dieses Zurückschreiben wären die Einstellungen
+    /// nach jedem Einschalten verloren. Werte, die nie gesetzt wurden, bleiben unberührt.
+    private func applyStoredSettings() {
+        let dpi = defaults.object(forKey: Keys.desiredDPI) as? Int
+        let mode = (defaults.object(forKey: Keys.desiredScrollMode) as? Int)
+            .flatMap { SmartShiftFeature.Mode(rawValue: UInt8($0)) }
+        let vertical = defaults.object(forKey: Keys.desiredVerticalInverted) as? Bool
+        let horizontal = defaults.object(forKey: Keys.desiredHorizontalInverted) as? Bool
+        guard dpi != nil || mode != nil || vertical != nil || horizontal != nil else { return }
+
+        worker.perform { device in
+            if let dpi = dpi { try? AdjustableDPIFeature(device: device).setDPI(dpi) }
+            if let mode = mode { try? SmartShiftFeature(device: device).setMode(mode) }
+            if let vertical = vertical { try? HiResWheelFeature(device: device).setInverted(vertical) }
+            if let horizontal = horizontal { try? ThumbwheelFeature(device: device).setInverted(horizontal) }
+        } completion: { [weak self] _ in
+            Task { @MainActor in self?.refresh() }
+        }
     }
 
     private let defaults = UserDefaults.standard
@@ -148,6 +178,7 @@ final class MouseModel: ObservableObject {
             permissionDenied = false
             statusMessage = String(localized: "status.connected")
             loadStaticInfo()
+            applyStoredSettings()
             refresh()
             // Batterie ändert sich träge; ein Intervall von einer Minute reicht.
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
@@ -229,6 +260,7 @@ final class MouseModel: ObservableObject {
     }
 
     func setDPI(_ dpi: Int) {
+        defaults.set(dpi, forKey: Keys.desiredDPI)
         worker.perform { device in
             try AdjustableDPIFeature(device: device).setDPI(dpi)
         } completion: { [weak self] result in
@@ -302,6 +334,7 @@ final class MouseModel: ObservableObject {
     }
 
     func setVerticalInverted(_ inverted: Bool) {
+        defaults.set(inverted, forKey: Keys.desiredVerticalInverted)
         worker.perform { device in
             try HiResWheelFeature(device: device).setInverted(inverted)
         } completion: { [weak self] result in
@@ -312,6 +345,7 @@ final class MouseModel: ObservableObject {
     }
 
     func setHorizontalInverted(_ inverted: Bool) {
+        defaults.set(inverted, forKey: Keys.desiredHorizontalInverted)
         worker.perform { device in
             try ThumbwheelFeature(device: device).setInverted(inverted)
         } completion: { [weak self] result in
@@ -322,6 +356,7 @@ final class MouseModel: ObservableObject {
     }
 
     func setScrollMode(_ mode: SmartShiftFeature.Mode) {
+        defaults.set(Int(mode.rawValue), forKey: Keys.desiredScrollMode)
         worker.perform { device in
             try SmartShiftFeature(device: device).setMode(mode)
         } completion: { [weak self] result in
@@ -377,6 +412,7 @@ final class MouseModel: ObservableObject {
         statusMessage = String(localized: "status.connected")
         productName = worker.productName
         loadStaticInfo()
+        applyStoredSettings()
         refresh()
         // Das Gerät verliert die Umleitung beim Trennen; ohne dies bliebe die DPI-Taste
         // nach dem Aufwachen wirkungslos, obwohl der Schalter sie als aktiv ausweist.
