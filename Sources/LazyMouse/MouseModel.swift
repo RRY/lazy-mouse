@@ -152,6 +152,50 @@ final class MouseModel: ObservableObject {
     private let worker = HIDPPWorker()
     private var stepIndex = 0
     private var refreshTimer: Timer?
+    /// Läuft nur, solange keine brauchbare Verbindung besteht.
+    private var retryTimer: Timer?
+
+    /// Die Verbindung antwortet nicht mehr.
+    ///
+    /// Das kann eintreten, ohne dass das Gerät verschwindet: nach einem Systemstart wird es
+    /// übernommen, bevor es antwortbereit ist. Vorher fiel das nicht auf, weil die
+    /// Leseroutine jeden Fehler verschluckte — die Anzeige blieb leer, wies sich aber
+    /// weiter als verbunden aus.
+    private func handleConnectionLost() {
+        connected = false
+        statusMessage = String(localized: "status.deviceNotFound")
+        batteryPercent = nil
+        currentDPI = nil
+        hostChannel = nil
+        startRetrying()
+    }
+
+    /// Versucht im Hintergrund weiter, bis das Gerät antwortet. Bei fehlender Berechtigung
+    /// wäre das zwecklos — die kann nur der Nutzer erteilen.
+    private func startRetrying() {
+        guard retryTimer == nil, !permissionDenied else { return }
+        retryTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.attemptRecovery() }
+        }
+    }
+
+    private func stopRetrying() {
+        retryTimer?.invalidate()
+        retryTimer = nil
+    }
+
+    private func attemptRecovery() {
+        worker.perform { device in
+            // Eine einzelne Abfrage genügt als Nachweis, dass das Gerät wieder antwortet.
+            _ = try BatteryFeature(device: device).status()
+        } completion: { [weak self] result in
+            guard let self = self, case .success = result else { return }
+            Task { @MainActor in
+                self.stopRetrying()
+                self.handleConnectionChange(true)
+            }
+        }
+    }
 
     init() {
         cycleEnabled = defaults.bool(forKey: Keys.cycleEnabled)
@@ -194,6 +238,8 @@ final class MouseModel: ObservableObject {
             } else {
                 statusMessage = "\(error)"
             }
+            // Beim Systemstart läuft die App oft, bevor Bluetooth die Maus verbunden hat.
+            startRetrying()
         case .idle:
             connected = false
             permissionDenied = false
@@ -203,10 +249,13 @@ final class MouseModel: ObservableObject {
 
     func refresh() {
         worker.perform { device -> Snapshot in
-            let battery = try? BatteryFeature(device: device).status()
+            // Bewusst ohne try?: schlägt schon diese Abfrage fehl, ist die Verbindung tot.
+            // Mit try? käme ein Schnappschuss voller nil zurück und die App hielte sich
+            // weiter für verbunden — genau das Bild "kein Warndreieck, keine Daten".
+            let battery = try BatteryFeature(device: device).status()
             return Snapshot(
-                batteryPercent: battery?.percentage,
-                charging: battery?.chargingStatus == .charging,
+                batteryPercent: battery.percentage,
+                charging: battery.chargingStatus == .charging,
                 dpi: try? AdjustableDPIFeature(device: device).currentDPI().current,
                 scrollMode: try? SmartShiftFeature(device: device).status().mode,
                 verticalInverted: (try? HiResWheelFeature(device: device).isInverted()) ?? false,
@@ -215,7 +264,11 @@ final class MouseModel: ObservableObject {
                 hostChannel: try? HostChannelFeature(device: device).current()
             )
         } completion: { [weak self] result in
-            guard let self = self, case .success(let snapshot) = result else { return }
+            guard let self = self else { return }
+            guard case .success(let snapshot) = result else {
+                Task { @MainActor in self.handleConnectionLost() }
+                return
+            }
             Task { @MainActor in
                 self.batteryPercent = snapshot.batteryPercent
                 self.charging = snapshot.charging
@@ -408,6 +461,7 @@ final class MouseModel: ObservableObject {
             hostChannel = nil
             return
         }
+        stopRetrying()
         permissionDenied = false
         statusMessage = String(localized: "status.connected")
         productName = worker.productName

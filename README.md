@@ -68,7 +68,14 @@ A transport that grabs the device once therefore writes into the void from then 
 because failed refreshes were dropped silently the UI kept showing stale values as if
 nothing was wrong.
 
-`HIDPPTransport` therefore registers matching and removal callbacks on the IOHID manager
+A device can also stop answering **without** disappearing: after a system restart the app
+starts before Bluetooth has the mouse ready, adopts it, and every request then times out.
+The refresh routine used to swallow those errors, so the app kept claiming a connection
+while showing nothing — no warning triangle, no data. Its first read is therefore mandatory
+now, and a failure marks the connection as lost and starts a retry every five seconds until
+the device answers again.
+
+`HIDPPTransport` registers matching and removal callbacks on the IOHID manager
 and adopts the new device on its own. On reconnect the app re-reads everything and **sets
 the button diversion again** — the device forgets it when disconnecting, so the DPI button
 would otherwise be dead while the toggle still claimed it was active. The product ID of the

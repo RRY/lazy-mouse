@@ -53,7 +53,14 @@ Ein Transport, der das Gerät einmalig greift, schreibt danach ins Leere; und we
 fehlgeschlagene Aktualisierungen stillschweigend verworfen wurden, zeigte die Oberfläche
 weiter alte Werte, als sei alles in Ordnung.
 
-`HIDPPTransport` meldet sich deshalb beim IOHID-Manager für Zu- und Abgänge an und übernimmt
+Ein Gerät kann auch aufhören zu antworten, **ohne** zu verschwinden: nach einem Systemstart
+läuft die App, bevor Bluetooth die Maus bereit hat, übernimmt sie, und jede Abfrage läuft
+danach in den Timeout. Die Leseroutine verschluckte diese Fehler, sodass sich die App weiter
+als verbunden auswies und dabei nichts anzeigte — kein Warndreieck, keine Daten. Ihre erste
+Abfrage ist deshalb jetzt verbindlich; scheitert sie, gilt die Verbindung als verloren und
+die App versucht es alle fünf Sekunden erneut, bis das Gerät wieder antwortet.
+
+`HIDPPTransport` meldet sich beim IOHID-Manager für Zu- und Abgänge an und übernimmt
 das neue Gerät selbständig. Bei Wiederkehr liest die App alles neu und **setzt die
 Tastenumleitung erneut** — die vergisst das Gerät beim Trennen, die DPI-Taste wäre sonst
 wirkungslos, obwohl der Schalter sie als aktiv ausweist. Die Produkt-ID des übernommenen
