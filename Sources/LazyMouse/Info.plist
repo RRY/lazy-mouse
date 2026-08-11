@@ -5,7 +5,7 @@
 	<key>CFBundleExecutable</key>
 	<string>LazyMouse</string>
 	<key>CFBundleIdentifier</key>
-	<string>de.ryback.lazymouse</string>
+	<string>com.lazysoftware.lazymouse</string>
 	<key>CFBundleName</key>
 	<string>Lazy Mouse</string>
 	<key>CFBundlePackageType</key>

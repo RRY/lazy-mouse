@@ -106,7 +106,7 @@ macOS remembers a granted permission by the app's *designated requirement*. With
 every rebuild, so Input Monitoring would have to be granted again each time.
 
 `build-app.sh` therefore signs with a self-signed certificate. The requirement then reads
-`identifier "de.ryback.lazymouse" and certificate root = H"…"`, independent of the program
+`identifier "com.lazysoftware.lazymouse" and certificate root = H"…"`, independent of the program
 hash, and the grant survives rebuilds. Without the certificate the script falls back to an
 ad-hoc signature and says so.
 

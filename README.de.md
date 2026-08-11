@@ -91,7 +91,7 @@ Bei einer **Ad-hoc-Signatur** enthält die den `cdhash` des Programms — der ä
 jedem Neubau, sodass die Eingabeüberwachung jedes Mal neu erteilt werden müsste.
 
 `build-app.sh` signiert deshalb mit einem selbstsignierten Zertifikat. Die Anforderung
-lautet dann `identifier "de.ryback.lazymouse" and certificate root = H"…"` und ist damit vom
+lautet dann `identifier "com.lazysoftware.lazymouse" and certificate root = H"…"` und ist damit vom
 Programm-Hash unabhängig; die Freigabe übersteht Neubauten. Fehlt das Zertifikat, weicht
 das Skript auf eine Ad-hoc-Signatur aus und weist darauf hin.
 

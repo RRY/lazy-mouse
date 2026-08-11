@@ -5,7 +5,7 @@
     <key>CFBundleExecutable</key>
     <string>gattscan</string>
     <key>CFBundleIdentifier</key>
-    <string>de.ryback.gattscan</string>
+    <string>com.lazysoftware.gattscan</string>
     <key>CFBundleName</key>
     <string>gattscan</string>
     <key>CFBundlePackageType</key>

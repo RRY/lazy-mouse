@@ -25,7 +25,7 @@ sleep 1
 # Only replace a bundle that really is this program.
 if [ -e "$APP" ]; then
     EXISTING_ID="$(defaults read "$APP/Contents/Info" CFBundleIdentifier 2>/dev/null || echo "")"
-    if [ "$EXISTING_ID" != "de.ryback.lazymouse" ]; then
+    if [ "$EXISTING_ID" != "com.lazysoftware.lazymouse" ]; then
         echo "Aborting: '$APP' exists and does not belong to Lazy Mouse (identifier: '$EXISTING_ID')." >&2
         exit 1
     fi
@@ -44,7 +44,7 @@ printf 'APPL????' > "$APP/Contents/PkgInfo"
 cp -R "$ROOT/Resources/"*.lproj "$APP/Contents/Resources/"
 
 # Signing. With an own certificate the designated requirement reads
-#   identifier "de.ryback.lazymouse" and certificate root = H"..."
+#   identifier "com.lazysoftware.lazymouse" and certificate root = H"..."
 # and is therefore independent of the program hash — the granted Input Monitoring survives
 # rebuilds. An ad-hoc signature binds to the cdhash instead, which changes with every build,
 # so the permission would have to be granted again each time.
