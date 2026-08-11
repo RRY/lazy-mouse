@@ -2,16 +2,18 @@ import Foundation
 import IOKit
 import IOKit.hid
 
-// Diagnose Phase 16: Wirkt der Friendly Name (0x0007) auf den von macOS gezeigten Namen?
+// Scratch tool for the IOKit/HID++ layer. Its content changed with every question that came
+// up — the git history holds the individual diagnostic runs that produced the protocol
+// findings in the README, from the first search for the vendor collection through the byte
+// layouts to the gesture measurements.
 //
-// Frühere Annahme war, dass 0x0005 DeviceNameType davon unberührt bleibt. Nach einem
-// Neuverbinden zeigt macOS jedoch den gesetzten Namen. Hier werden beide Felder samt Länge
-// ausgelesen, um zu klären, ob 0x0007 in 0x0005 durchschlägt und wo die Kürzung entsteht.
+// The version kept here reads both name fields of the device, the case that showed macOS
+// displays the writable friendly name rather than the read-only model designation.
 
+func hexBytes(_ b: [UInt8]) -> String { b.map { String(format: "%02X", $0) }.joined(separator: " ") }
 func ascii(_ b: [UInt8]) -> String {
     String(bytes: b.filter { $0 >= 0x20 && $0 < 0x7F }, encoding: .ascii) ?? ""
 }
-func hexBytes(_ b: [UInt8]) -> String { b.map { String(format: "%02X", $0) }.joined(separator: " ") }
 
 let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
 IOHIDManagerSetDeviceMatching(manager, [kIOHIDVendorIDKey as String: 0x046D] as CFDictionary)
@@ -27,12 +29,12 @@ guard IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone)) == kIORetur
           IOHIDElementGetUsagePage($0) >= 0xFF00 && IOHIDElementGetType($0) == kIOHIDElementTypeOutput
               && IOHIDElementGetReportCount($0) == 19 && IOHIDElementGetReportSize($0) == 8
       }) else {
-    print("Kein Logitech-HID++-Gerät gefunden.")
+    print("No Logitech HID++ device found.")
     exit(1)
 }
 
 let hidName = (IOHIDDeviceGetProperty(device, kIOHIDProductKey as CFString) as? String) ?? "?"
-print("HID-Produktname (das zeigt macOS): '\(hidName)'  (\(hidName.count) Zeichen)")
+print("HID product name (what macOS shows): '\(hidName)'  (\(hidName.count) characters)")
 
 IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
 _ = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
@@ -78,7 +80,7 @@ func featureIndex(_ id: UInt16) -> UInt8? {
     return p[0]
 }
 
-/// Liest einen blockweise übertragenen Namen zusammen.
+/// Reassembles a name transferred in chunks.
 func readName(_ index: UInt8, function: UInt8, length: Int) -> String {
     var collected: [UInt8] = []
     var offset = 0
@@ -93,8 +95,8 @@ func readName(_ index: UInt8, function: UInt8, length: Int) -> String {
 
 if let nameType = featureIndex(0x0005) {
     let count = request(nameType, 0x00)?.first ?? 0
-    print("\n0x0005 DeviceNameType — gemeldete Länge: \(count)")
-    // Bei 0x0005 beginnt die Antwort direkt mit den Zeichen, ohne Index davor.
+    print("\n0x0005 DeviceNameType — reported length: \(count)")
+    // With 0x0005 the response starts with the characters directly, without a leading index.
     var collected: [UInt8] = []
     var offset = 0
     while collected.count < Int(count), offset < Int(count) {
@@ -103,11 +105,11 @@ if let nameType = featureIndex(0x0005) {
         offset += p.count
     }
     print("  Name: '\(ascii(Array(collected.prefix(Int(count)))))'")
-    print("  roh:  \(hexBytes(Array(collected.prefix(Int(count)))))")
+    print("  raw:  \(hexBytes(Array(collected.prefix(Int(count)))))")
 }
 
 if let friendly = featureIndex(0x0007) {
     let lens = request(friendly, 0x00) ?? []
-    print("\n0x0007 DeviceFriendlyName — aktuell \(lens.first ?? 0), max \(lens.count > 1 ? lens[1] : 0)")
+    print("\n0x0007 DeviceFriendlyName — current \(lens.first ?? 0), max \(lens.count > 1 ? lens[1] : 0)")
     print("  Name: '\(readName(friendly, function: 0x01, length: Int(lens.first ?? 0)))'")
 }

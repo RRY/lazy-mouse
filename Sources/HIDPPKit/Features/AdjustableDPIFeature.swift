@@ -1,6 +1,6 @@
 import Foundation
 
-/// Feature 0x2201 (Adjustable DPI). Adressiert Sensor-Index 0 (die MX Master 3S hat einen Sensor).
+/// Feature 0x2201 (Adjustable DPI). Addresses sensor index 0 (the MX Master 3S has one sensor).
 public struct AdjustableDPIFeature {
     public static let featureID: UInt16 = 0x2201
 
@@ -27,13 +27,13 @@ public struct AdjustableDPIFeature {
 
     /// Function 0x01: GetSensorDpiList.
     ///
-    /// Die Antwort beginnt mit dem Sensor-Index, erst danach folgen 16-Bit-Werte. Ein Wert
-    /// mit gesetzten Bits `0xE000` ist keine DPI-Stufe, sondern eine Bereichsmarke: der
-    /// *vorhergehende* Wert ist das Minimum, die unteren 13 Bit sind die Schrittweite, der
-    /// *folgende* Wert das Maximum. Eine Null beendet die Liste.
+    /// The response starts with the sensor index; only then do 16-bit values follow. A value
+    /// with bits `0xE000` set is not a DPI step but a range marker: the *preceding* value is
+    /// the minimum, the lower 13 bits are the step size, and the *following* value is the
+    /// maximum. A zero ends the list.
     ///
-    /// Bei der MX Master 3S lautet die Antwort `00 | 00C8 | E032 | 1F40`, also 200 bis 8000
-    /// in Schritten von 50.
+    /// On the MX Master 3S the response reads `00 | 00C8 | E032 | 1F40`, i.e. 200 to 8000 in
+    /// steps of 50.
     public func dpiList() throws -> (fixedValues: [Int], range: SensorRange?) {
         let response = try device.call(feature: AdjustableDPIFeature.featureID, function: 0x01, params: [sensorIndex])
         guard response.params.count > 2 else { throw HIDPPError.malformedResponse }
@@ -48,8 +48,8 @@ public struct AdjustableDPIFeature {
         while i < words.count, words[i] != 0 {
             if words[i] & 0xE000 == 0xE000 {
                 let step = words[i] & 0x1FFF
-                // Das Minimum steht bereits in der Liste und gehört zum Bereich, nicht zu
-                // den Einzelstufen.
+                // The minimum is already in the list and belongs to the range, not to the
+                // individual steps.
                 let minimum = fixed.popLast() ?? 0
                 let maximum = i + 1 < words.count ? words[i + 1] : minimum
                 range = SensorRange(min: minimum, max: maximum, step: step)
@@ -62,7 +62,7 @@ public struct AdjustableDPIFeature {
         return (fixed, range)
     }
 
-    /// Function 0x02: GetSensorDpi -> (aktuelle DPI, Standard-DPI)
+    /// Function 0x02: GetSensorDpi -> (current DPI, default DPI)
     public func currentDPI() throws -> (current: Int, `default`: Int) {
         let response = try device.call(feature: AdjustableDPIFeature.featureID, function: 0x02, params: [sensorIndex])
         guard response.params.count >= 5 else { throw HIDPPError.malformedResponse }

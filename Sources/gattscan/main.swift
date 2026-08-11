@@ -1,9 +1,13 @@
 import Foundation
 import CoreBluetooth
 
-// Diagnose-Tool: verbindet sich per CoreBluetooth mit der MX Master 3S und listet
-// ALLE GATT-Services/-Characteristics auf. Ziel: klären, ob HID++ über einen eigenen
-// (nicht-standard) Service läuft, den IOHIDManager/HID-over-GATT nicht durchreicht.
+// Diagnostic tool: connects to the MX Master 3S over CoreBluetooth and lists ALL GATT
+// services and characteristics. Purpose: find out whether HID++ runs over a separate,
+// non-standard service that IOHIDManager and HID-over-GATT do not pass through.
+//
+// Outcome: it does not. Once macOS claims the mouse as a HID input device, it appears
+// neither in retrieveConnectedPeripherals nor in advertisements. Kept as a record of the
+// dead end.
 
 final class Scanner: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     var central: CBCentralManager!

@@ -10,21 +10,21 @@ struct LazyMouseApp: App {
         MenuBarExtra {
             MenuContent(model: model)
         } label: {
-            // Der Batteriestand steht direkt im Symbol, damit der häufigste Blick
-            // in die Menüleiste ohne Klick auskommt. Ein Problem soll ebenso ohne
-            // Klick erkennbar sein, deshalb das abweichende Symbol.
+            // The battery level sits right in the icon so the most frequent glance at the
+            // menu bar needs no click. A problem should be just as visible without one,
+            // hence the different symbol.
             HStack(spacing: 3) {
                 Image(systemName: model.connected ? "computermouse" : "exclamationmark.triangle")
                 if let percent = model.batteryPercent {
                     Text("\(percent)%")
                 }
             }
-            // MenuBarExtra zeichnet sein Label nicht neu, wenn sich nur der Inhalt ändert.
-            // Die wechselnde Identität erzwingt den Neuaufbau.
+            // MenuBarExtra does not redraw its label when only the content changes. The
+            // changing identity forces the rebuild.
             .id("\(model.connected)-\(model.batteryPercent ?? -1)")
         }
-        // Kein Settings-Szene: das Fenster verwaltet SettingsWindowController, weil es sich
-        // aus einer MenuBarExtra in Menü-Darstellung sonst nicht zuverlässig öffnen lässt.
+        // No Settings scene: SettingsWindowController manages the window, because it cannot
+        // be opened reliably from a MenuBarExtra in menu style.
     }
 }
 
@@ -32,9 +32,8 @@ struct MenuContent: View {
     @ObservedObject var model: MouseModel
 
     var body: some View {
-        // Das Menü enthält bewusst nur Aktionen: reiner Text wird darin als deaktivierter
-        // Eintrag gezeichnet und ist dadurch schlecht lesbar. Batterie und DPI stehen im
-        // Symbol beziehungsweise im Einstellungsfenster.
+        // The menu deliberately holds actions only: plain text is drawn as a disabled entry
+        // and is hard to read. Battery and DPI live in the icon and the settings window.
         if model.connected {
             Menu(LocalizedStringKey("menu.dpi")) {
                 ForEach(model.cycleSteps, id: \.self) { step in
@@ -46,14 +45,14 @@ struct MenuContent: View {
                 }
             }
 
-            // Das Scrollrad steht nur im Einstellungsfenster: seltener gebraucht als die
-            // DPI-Umschaltung, und das Menü soll kurz bleiben.
+            // The scroll wheel lives in the settings window only: needed less often than the
+            // DPI switching, and the menu should stay short.
             Toggle(LocalizedStringKey("menu.dpiButtonActive"), isOn: $model.cycleEnabled)
         } else if model.permissionDenied {
-            // Ohne diese Berechtigung liefert IOHIDManagerOpen kIOReturnNotPermitted.
-            // Ein erneuter Verbindungsversuch scheitert zwangsläufig, deshalb führt der
-            // Eintrag direkt zur einzigen Stelle, an der sich das beheben lässt.
-            // Woran es hakt, steht im Einstellungsfenster.
+            // Without this permission IOHIDManagerOpen returns kIOReturnNotPermitted. Another
+            // connection attempt is bound to fail, so the entry leads straight to the only
+            // place where it can be fixed. What exactly is wrong is stated in the settings
+            // window.
             Button(LocalizedStringKey("action.openInputMonitoring")) {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
                     NSWorkspace.shared.open(url)

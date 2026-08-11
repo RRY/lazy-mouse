@@ -1,18 +1,17 @@
 import Foundation
 
-/// Führt alle HID++-Zugriffe auf einem eigenen Thread mit eigener RunLoop aus.
+/// Runs every HID++ access on a dedicated thread with its own run loop.
 ///
-/// Nötig, weil `HIDPPTransport` das Gerät an die RunLoop des aufrufenden Threads bindet und
-/// beim Warten auf Antworten blockierend pumpt. In einer GUI würde das die Oberfläche
-/// einfrieren; außerdem müssen alle Zugriffe auf demselben Thread laufen wie die
-/// RunLoop-Registrierung.
+/// Necessary because `HIDPPTransport` ties the device to the run loop of the calling thread
+/// and pumps it while waiting for answers. In a GUI that would freeze the interface, and all
+/// accesses have to happen on the same thread as the run loop registration.
 public final class HIDPPWorker {
 
     public enum State {
         case idle
         case connected(productName: String)
-        /// Trägt den Fehler selbst, damit Aufrufer etwa eine fehlende Berechtigung von
-        /// einem nicht gefundenen Gerät unterscheiden können, ohne Texte zu vergleichen.
+        /// Carries the error itself, so callers can tell a missing permission from a device
+        /// that was not found without comparing message texts.
         case failed(Error)
     }
 
@@ -24,26 +23,25 @@ public final class HIDPPWorker {
     private let stateLock = NSLock()
     private var _state: State = .idle
 
-    /// Wartende Aufträge. Bewusst eine eigene Warteschlange statt `CFRunLoopPerformBlock`:
-    /// Ein Auftrag pumpt beim Warten auf die Geräteantwort die RunLoop erneut, und die
-    /// führte dabei den nächsten eingereihten Block *innerhalb* des laufenden aus. Der
-    /// innere Aufruf leert den Empfangspuffer des Transports, wodurch die Antwort des
-    /// äußeren verloren geht — je nach Verschachtelung mit falschem Ergebnis oder Hänger.
-    /// Aus dieser Warteschlange werden Aufträge nur auf oberster Ebene der Thread-Schleife
-    /// entnommen, sodass sich Aufrufe nie überlappen können.
+    /// Pending jobs. Deliberately an own queue rather than `CFRunLoopPerformBlock`: a job
+    /// pumps the run loop again while waiting for the device's answer, and that pump would
+    /// execute the next queued block *inside* the running one. The inner call clears the
+    /// transport's receive buffer, so the outer call's answer is lost — depending on the
+    /// nesting either as a wrong result or as a hang. Jobs are taken from this queue only at
+    /// the top level of the thread loop, so calls can never overlap.
     private let jobLock = NSLock()
     private var pendingJobs: [() -> Void] = []
 
-    /// Wird bei Tastendrücken umgeleiteter Tasten aufgerufen — bereits auf die Hauptqueue
-    /// zugestellt, damit Aufrufer direkt die Oberfläche aktualisieren können.
+    /// Called on presses of diverted buttons — already delivered on the main queue so callers
+    /// can update the interface directly.
     public var onNotification: (([UInt8]) -> Void)?
 
-    /// Meldet Verlust und Wiederkehr des Geräts, ebenfalls auf der Hauptqueue. Nach einem
-    /// Ruhezustand legt macOS ein neues Gerät an; wer Einstellungen im Gerät hält (etwa
-    /// umgeleitete Tasten), muss sie danach erneut setzen.
+    /// Reports loss and return of the device, likewise on the main queue. After sleep macOS
+    /// creates a new device; anything held in the device — diverted buttons, for instance —
+    /// has to be set again afterwards.
     public var onConnectionChange: ((Bool) -> Void)?
 
-    /// Produktname des zuletzt übernommenen Geräts.
+    /// Product name of the most recently adopted device.
     public var productName: String {
         if case .connected(let name) = state { return name }
         return "—"
@@ -56,7 +54,7 @@ public final class HIDPPWorker {
 
     public init() {}
 
-    /// Startet den Worker und wartet, bis die Verbindung steht oder fehlgeschlagen ist.
+    /// Starts the worker and waits until the connection is up or has failed.
     @discardableResult
     public func start(preferredProductID: Int? = HIDPPTransport.productIDMXMaster3S) -> State {
         let thread = Thread { [weak self] in
@@ -86,9 +84,9 @@ public final class HIDPPWorker {
             }
             self.startupSemaphore.signal()
 
-            // Am Leben halten, damit die RunLoop Input-Reports zustellt. Aufträge werden
-            // erst nach der Rückkehr aus der RunLoop abgearbeitet, also außerhalb jedes
-            // RunLoop-Aufrufs — nur so bleiben sie garantiert unverschachtelt.
+            // Keep alive so the run loop delivers input reports. Jobs are processed only
+            // after returning from the run loop, that is outside any run loop call — only
+            // then are they guaranteed not to nest.
             while !Thread.current.isCancelled {
                 CFRunLoopRunInMode(.defaultMode, 0.1, false)
                 self.drainJobs()
@@ -110,7 +108,7 @@ public final class HIDPPWorker {
         jobLock.lock()
         pendingJobs.append(job)
         jobLock.unlock()
-        // Weckt die RunLoop, damit der Auftrag nicht bis zum Ablauf des Intervalls wartet.
+        // Wakes the run loop so the job does not wait for the interval to expire.
         if let runLoop = runLoop { CFRunLoopWakeUp(runLoop) }
     }
 
@@ -124,7 +122,7 @@ public final class HIDPPWorker {
         }
     }
 
-    /// Führt `work` auf dem HID-Thread aus und liefert das Ergebnis auf der Hauptqueue.
+    /// Runs `work` on the HID thread and delivers the result on the main queue.
     public func perform<T>(_ work: @escaping (HIDPPDevice) throws -> T,
                            completion: @escaping (Result<T, Error>) -> Void) {
         enqueue { [weak self] in
@@ -137,11 +135,11 @@ public final class HIDPPWorker {
         }
     }
 
-    /// Führt `work` auf dem HID-Thread aus und wartet auf das Ergebnis.
+    /// Runs `work` on the HID thread and waits for the result.
     ///
-    /// Anders als `perform` läuft die Rückmeldung nicht über die Hauptqueue. Das ist
-    /// entscheidend für Aufrufe aus dem Beenden-Pfad: dort blockiert der Aufrufer den
-    /// Main-Thread, sodass eine dorthin zugestellte Completion nie ankäme.
+    /// Unlike `perform`, the reply does not go through the main queue. That is essential for
+    /// calls from the quit path: there the caller blocks the main thread, so a completion
+    /// delivered to it would never arrive.
     @discardableResult
     public func performSync<T>(timeout: TimeInterval = 2.0,
                                _ work: @escaping (HIDPPDevice) throws -> T) -> Result<T, Error> {

@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "mxctl",
     platforms: [
-        // macOS 14 wegen SettingsLink und der zweiparametrigen onChange-Signatur in MXMenu.
+        // macOS 14 for SettingsLink and the two-parameter onChange signature in LazyMouse.
         .macOS(.v14)
     ],
     targets: [

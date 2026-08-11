@@ -11,8 +11,8 @@ public enum HIDPPError: Error, CustomStringConvertible {
     case protocolError(featureIndex: UInt8, function: UInt8, errorCode: UInt8)
     case malformedResponse
 
-    /// Fehlende Berechtigung "Eingabeüberwachung". Sie lässt sich nur vom Nutzer in den
-    /// Systemeinstellungen erteilen — ein erneuter Verbindungsversuch bringt vorher nichts.
+    /// Missing "Input Monitoring" permission. Only the user can grant it in System
+    /// Settings — retrying the connection before that is pointless.
     public var isPermissionDenied: Bool {
         switch self {
         case .managerOpenFailed(let code), .deviceOpenFailed(let code):

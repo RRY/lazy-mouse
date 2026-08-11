@@ -1,17 +1,17 @@
 import Foundation
 
-/// Feature 0x2121 (HiRes Wheel) — vertikales Scrollrad.
+/// Feature 0x2121 (HiRes Wheel) — the vertical scroll wheel.
 ///
-/// Der Modus steckt in einem Flag-Byte. Belegung laut Protokolldokumentation; empirisch
-/// bestätigt ist nur, dass alle Bits gesetzt und zurückgelesen werden können. Beim Ändern
-/// werden die übrigen Bits erhalten — insbesondere `target` darf nicht versehentlich
-/// gesetzt werden, weil das Rad seine Bewegung dann an HID++ meldet statt als normales
-/// Scrollen, also faktisch aufhört zu funktionieren.
+/// The mode lives in a flag byte. The assignment follows the protocol documentation; what is
+/// empirically confirmed is only that every bit can be set and read back. Changing one bit
+/// preserves the others — `target` in particular must never be set by accident, because the
+/// wheel then reports its movement to HID++ instead of scrolling normally, which means it
+/// stops working.
 public struct HiResWheelFeature {
     public static let featureID: UInt16 = 0x2121
 
     private enum Flag {
-        /// Rad meldet an HID++ statt an HID — Scrollen fällt damit aus.
+        /// Wheel reports to HID++ instead of HID — scrolling stops working.
         static let target: UInt8 = 0x01
         static let resolution: UInt8 = 0x02
         static let invert: UInt8 = 0x04
@@ -34,24 +34,24 @@ public struct HiResWheelFeature {
         try modeFlags() & Flag.invert != 0
     }
 
-    /// Feinauflösung: das Rad meldet je Raste `multiplier` Schritte statt einem, was
-    /// feinstufigeres und damit weicheres Scrollen ergibt.
+    /// High resolution: the wheel reports `multiplier` steps per detent instead of one, for
+    /// finer and therefore smoother scrolling.
     public func isHighResolution() throws -> Bool {
         try modeFlags() & Flag.resolution != 0
     }
 
-    /// Function 0x00: GetWheelCapability — Multiplikator zwischen Fein- und Normalauflösung.
+    /// Function 0x00: GetWheelCapability — multiplier between high and normal resolution.
     public func resolutionMultiplier() throws -> Int {
         let response = try device.call(feature: HiResWheelFeature.featureID, function: 0x00)
         guard let multiplier = response.params.first else { throw HIDPPError.malformedResponse }
         return Int(multiplier)
     }
 
-    /// Function 0x02: SetWheelMode. Ändert gezielt einzelne Bits und erhält die übrigen.
+    /// Function 0x02: SetWheelMode. Changes individual bits and preserves the rest.
     private func setFlag(_ flag: UInt8, _ enabled: Bool) throws {
         var flags = try modeFlags()
         flags = enabled ? (flags | flag) : (flags & ~flag)
-        // Sicherheitsnetz: dieses Bit würde das Rad stumm schalten und gehört nie gesetzt.
+        // Safety net: this bit would mute the wheel and must never be set.
         flags &= ~Flag.target
         try device.call(feature: HiResWheelFeature.featureID, function: 0x02, params: [flags])
     }
@@ -65,11 +65,11 @@ public struct HiResWheelFeature {
     }
 }
 
-/// Feature 0x2150 (Thumbwheel) — horizontales Daumenrad.
+/// Feature 0x2150 (Thumbwheel) — the horizontal thumb wheel.
 ///
-/// `SetThumbwheelReporting` nimmt zwei Bytes: Meldemodus und Invertierung, jeweils 0 oder 1.
-/// Andere Werte lehnt das Gerät ab (0x02 im ersten Byte quittiert es mit INVALID_ARGUMENT,
-/// im zweiten verwirft es sie stillschweigend). `GetThumbwheelStatus` gibt beide zurück.
+/// `SetThumbwheelReporting` takes two bytes: reporting mode and inversion, each 0 or 1. The
+/// device rejects other values — 0x02 in the first byte is answered with INVALID_ARGUMENT,
+/// in the second it is silently discarded. `GetThumbwheelStatus` returns both.
 public struct ThumbwheelFeature {
     public static let featureID: UInt16 = 0x2150
 
@@ -79,7 +79,7 @@ public struct ThumbwheelFeature {
         self.device = device
     }
 
-    /// Function 0x01: GetThumbwheelStatus -> (Meldemodus, Invertierung)
+    /// Function 0x01: GetThumbwheelStatus -> (reporting mode, inversion)
     private func status() throws -> (reportingDiverted: Bool, inverted: Bool) {
         let response = try device.call(feature: ThumbwheelFeature.featureID, function: 0x01)
         guard response.params.count >= 2 else { throw HIDPPError.malformedResponse }
@@ -92,7 +92,7 @@ public struct ThumbwheelFeature {
 
     /// Function 0x02: SetThumbwheelReporting
     public func setInverted(_ inverted: Bool) throws {
-        // Meldemodus unverändert lassen: umgeleitet meldet das Rad an HID++ statt zu scrollen.
+        // Leave the reporting mode alone: diverted, the wheel reports to HID++ instead of scrolling.
         let current = try status()
         try device.call(
             feature: ThumbwheelFeature.featureID,

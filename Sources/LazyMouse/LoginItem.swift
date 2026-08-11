@@ -1,24 +1,24 @@
 import Foundation
 import ServiceManagement
 
-/// Autostart beim Login über `SMAppService`.
+/// Launch at login through `SMAppService`.
 ///
-/// Der Zustand wird bewusst nicht zusätzlich gespeichert: die Registrierung lebt im System
-/// und kann dort auch außerhalb der App geändert werden (Systemeinstellungen → Allgemein →
-/// Anmeldeobjekte). Eine eigene Kopie würde davon abweichen.
+/// The state is deliberately not stored a second time: the registration lives in the system
+/// and can be changed there outside the app as well (System Settings → General → Login
+/// Items). A private copy would drift away from it.
 enum LoginItem {
 
     static var isEnabled: Bool {
         SMAppService.mainApp.status == .enabled
     }
 
-    /// Der Nutzer hat den Autostart in den Systemeinstellungen ausdrücklich abgelehnt.
-    /// Ein `register()` bleibt dann wirkungslos, bis er dort wieder freigegeben wird.
+    /// The user has explicitly denied launching at login in System Settings. `register()`
+    /// then stays without effect until it is allowed there again.
     static var isBlockedBySystem: Bool {
         SMAppService.mainApp.status == .requiresApproval
     }
 
-    /// Gibt eine Fehlerbeschreibung zurück, wenn die Änderung nicht durchging.
+    /// Returns a description if the change did not go through.
     static func setEnabled(_ enabled: Bool) -> String? {
         do {
             if enabled {

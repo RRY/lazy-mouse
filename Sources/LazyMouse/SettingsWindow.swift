@@ -1,12 +1,12 @@
 import AppKit
 import SwiftUI
 
-/// Verwaltet das Einstellungsfenster selbst, statt SwiftUIs `Settings`-Szene zu nutzen.
+/// Manages the settings window itself instead of using SwiftUI's `Settings` scene.
 ///
-/// Aus einer MenuBarExtra in Menü-Darstellung lässt sich die Settings-Szene nicht
-/// zuverlässig öffnen: `SettingsLink` wird dort nicht funktionsfähig gerendert, und der
-/// verbreitete Umweg über den undokumentierten Selektor `showSettingsWindow:` hängt von der
-/// macOS-Version ab. Ein eigenes NSWindow ist unabhängig davon.
+/// The Settings scene cannot be opened reliably from a MenuBarExtra in menu style:
+/// `SettingsLink` is not rendered in a working state there, and the widely used detour via
+/// the undocumented `showSettingsWindow:` selector depends on the macOS version. An own
+/// NSWindow is independent of both.
 @MainActor
 final class SettingsWindowController {
     static let shared = SettingsWindowController()
@@ -21,16 +21,16 @@ final class SettingsWindowController {
             let created = NSWindow(contentViewController: hosting)
             created.title = "Einstellungen"
             created.styleMask = [.titled, .closable]
-            // Ohne das gibt macOS das Fenster beim Schließen frei; ein zweiter Aufruf
-            // würde dann auf eine tote Referenz zugreifen.
+            // Without this macOS releases the window on close, and a second call would
+            // reach into a dead reference.
             created.isReleasedWhenClosed = false
             created.center()
             window = created
         }
-        // Das Fenster ist die einzige Stelle, an der Batterie und DPI abzulesen sind —
-        // im Minutentakt aktualisierte Werte wären hier womöglich veraltet.
+        // The window is the only place where battery and DPI can be read — values refreshed
+        // once a minute could well be stale here.
         model.refresh()
-        // Eine reine Menüleisten-App ist nicht aktiv; ohne das erschiene das Fenster hinten.
+        // A pure menu bar app is not active; without this the window would appear behind.
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }

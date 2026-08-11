@@ -1,9 +1,9 @@
 import Foundation
 
-/// Feature 0x1004 (Unified Battery) — auf allen aktuellen Logitech-Geräten inkl. MX Master 3S
-/// die Standard-Batterie-Feature. Byte-Layout unten nach bestem verfügbaren Protokollwissen;
-/// falls die Prozentzahl auf echter Hardware unplausibel wirkt, zuerst `rawStatus()` prüfen,
-/// um die Offsets empirisch zu verifizieren.
+/// Feature 0x1004 (Unified Battery) — the standard battery feature on all current Logitech
+/// devices including the MX Master 3S. The byte layout below follows the best available
+/// protocol knowledge; if the percentage looks implausible on real hardware, check
+/// `rawStatus()` first to verify the offsets empirically.
 public struct BatteryFeature {
     public static let featureID: UInt16 = 0x1004
 
@@ -42,7 +42,7 @@ public struct BatteryFeature {
         return Status(percentage: percentage, chargingStatus: charging, externalPowerConnected: externalPower)
     }
 
-    /// Rohantwort für Diagnose/Kalibrierung der Byte-Offsets gegen echte Hardware.
+    /// Raw response, for diagnosing and calibrating the byte offsets against real hardware.
     public func rawStatus() throws -> [UInt8] {
         try device.call(feature: BatteryFeature.featureID, function: 0x01).params
     }

@@ -2,16 +2,16 @@ import Foundation
 import SwiftUI
 import HIDPPKit
 
-/// Zustand der Maus für die Oberfläche. Alle HID-Zugriffe laufen über den Worker-Thread;
-/// veröffentlichte Eigenschaften werden ausschließlich auf der Hauptqueue geschrieben.
+/// State of the mouse for the interface. Every HID access goes through the worker thread;
+/// published properties are written on the main queue only.
 @MainActor
 final class MouseModel: ObservableObject {
 
     @Published var productName: String = "—"
     @Published var connected = false
     @Published var statusMessage = String(localized: "status.notConnected")
-    /// Steuert, ob ein erneuter Verbindungsversuch überhaupt Sinn ergibt: eine fehlende
-    /// Berechtigung kann nur der Nutzer in den Systemeinstellungen beheben.
+    /// Governs whether another connection attempt makes sense at all: only the user can fix
+    /// a missing permission, in System Settings.
     @Published var permissionDenied = false
     @Published var batteryPercent: Int?
     @Published var charging = false
@@ -21,18 +21,18 @@ final class MouseModel: ObservableObject {
     @Published var horizontalInverted = false
     @Published var firmwareVersion: String?
     @Published var serialNumber: String?
-    /// Tasten, die für die DPI-Umschaltung angeboten werden. Gelesen wird vom Gerät, damit
-    /// die Auswahl auch bei anderen Modellen stimmt.
+    /// Buttons offered for DPI switching. Read from the device so the selection is right on
+    /// other models too.
     @Published var availableButtons: [(cid: Int, name: String)] = []
     @Published var friendlyName = ""
     @Published var friendlyNameProblem: String?
-    /// Höchstlänge des Gerätenamens, wie sie das Gerät meldet.
+    /// Maximum length of the device name as reported by the device.
     @Published var friendlyNameMaxLength = 18
-    /// Zulässiger DPI-Bereich, wie ihn das Gerät meldet. Werte außerhalb oder neben dem
-    /// Raster lehnt es mit INVALID_ARGUMENT ab.
+    /// Permitted DPI range as reported by the device. It rejects values outside it or beside
+    /// the grid with INVALID_ARGUMENT.
     @Published var dpiRange: (min: Int, max: Int, step: Int)?
 
-    /// Beschreibt, was am eingetragenen Stufen-Text nicht zum Gerät passt.
+    /// Describes what about the entered steps does not fit the device.
     var cycleStepsProblem: String? {
         guard let range = dpiRange else { return nil }
         let parsed = cycleStepsRaw.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
@@ -46,33 +46,32 @@ final class MouseModel: ObservableObject {
         return nil
     }
 
-    /// Zeichen, die macOS vom Gerätenamen übernimmt. Das Gerät speichert mehr (18), zeigt
-    /// in den Bluetooth-Einstellungen erscheint aber nur der gekürzte Anfang.
+    /// Characters macOS takes from the device name. The device stores more (18), but only the
+    /// truncated beginning shows up in the Bluetooth settings.
     static let displayedNameLength = 14
 
-    /// Tastenname in der Sprache des Systems. Bewusst hier statt in `HIDPPKit`: die
-    /// Bibliothek kennt keine Sprachdateien, ihre Namen dienen dem CLI.
+    /// Button name in the system language. Deliberately here rather than in `HIDPPKit`: the
+    /// library has no string files, its names serve the CLI.
     static func localizedButtonName(for cid: UInt16) -> String {
         let key = String(format: "button.0x%04X", cid)
         let localized = String(localized: String.LocalizationValue(key))
-        // Unbekannte Control-ID: der Schlüssel kommt unübersetzt zurück.
+        // Unknown control ID: the key comes back untranslated.
         guard localized != key else {
             return String(format: String(localized: "button.unknown"), cid)
         }
         return localized
     }
 
-    /// Nur Tasten, deren angestammte Funktion entbehrlich ist. Zurück, Vorwärts und die
-    /// mittlere Taste sind in ihrer Standardbelegung nützlicher als eine DPI-Umschaltung,
-    /// und die virtuelle Gestentaste ist gar keine Taste. Findet sich auf einem fremden
-    /// Modell keine davon, bleibt es bei allen umleitbaren — sonst wäre die Funktion dort
-    /// ohne Not tot.
+    /// Only buttons whose native function is expendable. Back, forward and the middle button
+    /// are more useful in their default assignment than as a DPI switch, and the virtual
+    /// gesture button is not a button at all. If an unfamiliar model carries none of these,
+    /// all divertable ones remain — otherwise the feature would be dead there for no reason.
     private static let preferredCycleButtons: Set<Int> = [0x00C3, 0x00C4]
     @Published var hostChannel: (channel: Int, total: Int)?
 
-    // Einstellungen werden von Hand in UserDefaults gespiegelt statt über @AppStorage:
-    // dessen Wrapper löst in einer ObservableObject-Klasse kein objectWillChange aus, die
-    // Oberfläche würde Änderungen also nicht zuverlässig nachziehen.
+    // Settings are mirrored into UserDefaults by hand rather than through @AppStorage: that
+    // wrapper does not raise objectWillChange in an ObservableObject class, so the interface
+    // would not follow changes reliably.
     @Published var cycleEnabled: Bool {
         didSet {
             defaults.set(cycleEnabled, forKey: Keys.cycleEnabled)
@@ -81,7 +80,7 @@ final class MouseModel: ObservableObject {
     }
     @Published var cycleButtonCID: Int {
         didSet {
-            // Erst die bisherige Taste freigeben, sonst bliebe sie umgeleitet zurück.
+            // Release the previous button first, or it would stay diverted.
             releaseButton(cid: UInt16(oldValue))
             defaults.set(cycleButtonCID, forKey: Keys.cycleButtonCID)
             applyCycleState()
@@ -91,8 +90,8 @@ final class MouseModel: ObservableObject {
         didSet { defaults.set(cycleStepsRaw, forKey: Keys.cycleSteps) }
     }
 
-    /// Autostart. Der wahre Zustand liegt im System, nicht in UserDefaults — deshalb wird
-    /// nach jedem Schreiben zurückgelesen, damit eine abgelehnte Änderung sichtbar wird.
+    /// Launch at login. The true state lives in the system, not in UserDefaults — hence the
+    /// read-back after every write, so a rejected change becomes visible.
     @Published var launchAtLogin: Bool = LoginItem.isEnabled
     @Published var launchAtLoginProblem: String?
 
@@ -116,20 +115,20 @@ final class MouseModel: ObservableObject {
         static let cycleEnabled = "cycleEnabled"
         static let cycleButtonCID = "cycleButtonCID"
         static let cycleSteps = "cycleSteps"
-        // Gewünschte Gerätewerte. Die Maus verliert sie beim Ausschalten, deshalb hält die
-        // App sie und schreibt sie bei jeder Verbindung zurück.
+        // Wanted device values. The mouse loses them when switched off, so the app holds them
+        // and writes them back on every connection.
         static let desiredDPI = "desiredDPI"
         static let desiredScrollMode = "desiredScrollMode"
         static let desiredVerticalInverted = "desiredVerticalInverted"
         static let desiredHorizontalInverted = "desiredHorizontalInverted"
     }
 
-    /// Schreibt die gemerkten Werte ins Gerät.
+    /// Writes the remembered values to the device.
     ///
-    /// Nötig, weil die MX Master 3S DPI und Scrollrichtung nur bis zum Ausschalten behält —
-    /// am Gerät nachgemessen: nach einem Aus/Ein standen 1000 DPI und eine nicht mehr
-    /// umgekehrte Daumenradrichtung. Ohne dieses Zurückschreiben wären die Einstellungen
-    /// nach jedem Einschalten verloren. Werte, die nie gesetzt wurden, bleiben unberührt.
+    /// Necessary because the MX Master 3S keeps DPI and scroll direction only until it is
+    /// switched off — measured on the device: after an off/on cycle it read 1000 DPI and a
+    /// thumb wheel that was no longer inverted. Without writing them back the settings would
+    /// be lost on every power-up. Values that were never set stay untouched.
     private func applyStoredSettings() {
         let dpi = defaults.object(forKey: Keys.desiredDPI) as? Int
         let mode = (defaults.object(forKey: Keys.desiredScrollMode) as? Int)
@@ -152,15 +151,14 @@ final class MouseModel: ObservableObject {
     private let worker = HIDPPWorker()
     private var stepIndex = 0
     private var refreshTimer: Timer?
-    /// Läuft nur, solange keine brauchbare Verbindung besteht.
+    /// Runs only while there is no usable connection.
     private var retryTimer: Timer?
 
-    /// Die Verbindung antwortet nicht mehr.
+    /// The connection has stopped answering.
     ///
-    /// Das kann eintreten, ohne dass das Gerät verschwindet: nach einem Systemstart wird es
-    /// übernommen, bevor es antwortbereit ist. Vorher fiel das nicht auf, weil die
-    /// Leseroutine jeden Fehler verschluckte — die Anzeige blieb leer, wies sich aber
-    /// weiter als verbunden aus.
+    /// This can happen without the device disappearing: after a system start it is adopted
+    /// before it is ready to answer. It used to go unnoticed because the read routine
+    /// swallowed every error — the display stayed empty while still claiming a connection.
     private func handleConnectionLost() {
         connected = false
         statusMessage = String(localized: "status.deviceNotFound")
@@ -170,8 +168,8 @@ final class MouseModel: ObservableObject {
         startRetrying()
     }
 
-    /// Versucht im Hintergrund weiter, bis das Gerät antwortet. Bei fehlender Berechtigung
-    /// wäre das zwecklos — die kann nur der Nutzer erteilen.
+    /// Keeps trying in the background until the device answers. Pointless when the permission
+    /// is missing — only the user can grant that.
     private func startRetrying() {
         guard retryTimer == nil, !permissionDenied else { return }
         retryTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
@@ -186,7 +184,7 @@ final class MouseModel: ObservableObject {
 
     private func attemptRecovery() {
         worker.perform { device in
-            // Eine einzelne Abfrage genügt als Nachweis, dass das Gerät wieder antwortet.
+            // A single request suffices as proof that the device answers again.
             _ = try BatteryFeature(device: device).status()
         } completion: { [weak self] result in
             guard let self = self, case .success = result else { return }
@@ -210,7 +208,7 @@ final class MouseModel: ObservableObject {
             Task { @MainActor in self?.handleConnectionChange(isConnected) }
         }
         connect()
-        // Nach einem Neustart steht die Umleitung im Gerät nicht mehr — erneut setzen.
+        // After a restart the diversion is gone from the device — set it again.
         if cycleEnabled { applyCycleState() }
     }
 
@@ -224,7 +222,7 @@ final class MouseModel: ObservableObject {
             loadStaticInfo()
             applyStoredSettings()
             refresh()
-            // Batterie ändert sich träge; ein Intervall von einer Minute reicht.
+            // Battery changes slowly; an interval of one minute is enough.
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
                 Task { @MainActor in self?.refresh() }
             }
@@ -238,7 +236,7 @@ final class MouseModel: ObservableObject {
             } else {
                 statusMessage = "\(error)"
             }
-            // Beim Systemstart läuft die App oft, bevor Bluetooth die Maus verbunden hat.
+            // At system start the app often runs before Bluetooth has connected the mouse.
             startRetrying()
         case .idle:
             connected = false
@@ -249,9 +247,9 @@ final class MouseModel: ObservableObject {
 
     func refresh() {
         worker.perform { device -> Snapshot in
-            // Bewusst ohne try?: schlägt schon diese Abfrage fehl, ist die Verbindung tot.
-            // Mit try? käme ein Schnappschuss voller nil zurück und die App hielte sich
-            // weiter für verbunden — genau das Bild "kein Warndreieck, keine Daten".
+            // Deliberately without try?: if this request already fails, the connection is
+            // dead. With try? a snapshot full of nil would come back and the app would keep
+            // believing it is connected — exactly the "no warning triangle, no data" picture.
             let battery = try BatteryFeature(device: device).status()
             return Snapshot(
                 batteryPercent: battery.percentage,
@@ -260,7 +258,7 @@ final class MouseModel: ObservableObject {
                 scrollMode: try? SmartShiftFeature(device: device).status().mode,
                 verticalInverted: (try? HiResWheelFeature(device: device).isInverted()) ?? false,
                 horizontalInverted: (try? ThumbwheelFeature(device: device).isInverted()) ?? false,
-                // Kann sich ändern, wenn am Gerät der Kanal umgeschaltet wird.
+                // Can change when the channel is switched on the device.
                 hostChannel: try? HostChannelFeature(device: device).current()
             )
         } completion: { [weak self] result in
@@ -284,8 +282,8 @@ final class MouseModel: ObservableObject {
         }
     }
 
-    /// Schreibt den Gerätenamen. macOS übernimmt ihn erst beim nächsten Verbinden und kürzt
-    /// ihn dabei auf `displayedNameLength` Zeichen.
+    /// Writes the device name. macOS only picks it up on the next connection and truncates it
+    /// to `displayedNameLength` characters.
     func setFriendlyName(_ newName: String) {
         let trimmed = newName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else {
@@ -295,7 +293,7 @@ final class MouseModel: ObservableObject {
         worker.perform { device -> String in
             let feature = FriendlyNameFeature(device: device)
             try feature.setName(trimmed)
-            // Zurücklesen: das Gerät kürzt zu lange Namen selbst.
+            // Read back: the device truncates overlong names itself.
             return try feature.name()
         } completion: { [weak self] result in
             Task { @MainActor in
@@ -323,7 +321,7 @@ final class MouseModel: ObservableObject {
         }
     }
 
-    /// Werte, die sich nicht von selbst ändern und einmal beim Verbinden gelesen werden.
+    /// Values that do not change by themselves, read once on connecting.
     private struct StaticInfo {
         let firmware: String?
         let serial: String?
@@ -333,8 +331,8 @@ final class MouseModel: ObservableObject {
         let dpiRange: (min: Int, max: Int, step: Int)?
     }
 
-    /// Ein Lesedurchgang. Als eigener Typ, weil ein Tupel mit sechs Feldern an der
-    /// Aufrufstelle nur noch aus Indizes bestünde.
+    /// One read pass. Its own type because a six-field tuple would leave the call site as
+    /// nothing but indices.
     private struct Snapshot {
         let batteryPercent: Int?
         let charging: Bool
@@ -345,8 +343,8 @@ final class MouseModel: ObservableObject {
         let hostChannel: (channel: Int, total: Int)?
     }
 
-    /// Firmware und Seriennummer ändern sich nicht von selbst — einmal beim Verbinden zu
-    /// lesen genügt, statt sie in jeden Minutentakt aufzunehmen.
+    /// Firmware and serial number do not change by themselves — reading them once on
+    /// connecting is enough, rather than folding them into every minute's refresh.
     private func loadStaticInfo() {
         worker.perform { device -> StaticInfo in
             let info = DeviceInfoFeature(device: device)
@@ -361,7 +359,7 @@ final class MouseModel: ObservableObject {
                 serial: try? info.serialNumber(),
                 buttons: preferred.isEmpty ? divertable : preferred,
                 friendlyName: (try? nameFeature.name()) ?? "",
-                // Die Obergrenze meldet das Gerät selbst; 18 ist nur der Rückfall.
+                // The device reports the upper limit itself; 18 is only the fallback.
                 friendlyNameMaxLength: (try? nameFeature.lengths().max) ?? 18,
                 dpiRange: (try? AdjustableDPIFeature(device: device).dpiList().range).flatMap {
                     $0.map { (min: $0.min, max: $0.max, step: $0.step) }
@@ -377,8 +375,8 @@ final class MouseModel: ObservableObject {
                 self.friendlyName = info.friendlyName
                 self.friendlyNameMaxLength = info.friendlyNameMaxLength
                 self.dpiRange = info.dpiRange
-                // Die gespeicherte Taste kann von einem anderen Gerät stammen; dann auf die
-                // erste vorhandene ausweichen, sonst zeigte die Auswahl ins Leere.
+                // The stored button may come from a different device; fall back to the first
+                // available one, or the selection would point nowhere.
                 if !info.buttons.isEmpty, !info.buttons.contains(where: { $0.cid == self.cycleButtonCID }) {
                     self.cycleButtonCID = info.buttons[0].cid
                 }
@@ -419,13 +417,13 @@ final class MouseModel: ObservableObject {
         }
     }
 
-    /// Aktiviert bzw. löst die Umleitung der Taste, über die DPI-Stufen geschaltet werden.
+    /// Enables or releases the diversion of the button that steps through DPI levels.
     func applyCycleState() {
         let cid = UInt16(cycleButtonCID)
         let enabled = cycleEnabled
         worker.perform { device in
             let buttons = SpecialButtonsFeature(device: device)
-            // Zurücksetzen statt divert=off: das stellt auch persist/rawXY auf Default.
+            // Reset rather than divert=off: that also returns persist and rawXY to default.
             if enabled {
                 try buttons.setDivert(controlID: cid, enabled: true)
             } else {
@@ -440,8 +438,8 @@ final class MouseModel: ObservableObject {
         } completion: { _ in }
     }
 
-    /// Muss beim Beenden laufen — eine umgeleitete Taste bliebe sonst wirkungslos zurück.
-    /// Blockiert bewusst, damit der Befehl das Gerät noch vor dem Prozessende erreicht.
+    /// Has to run on quit — a diverted button would stay dead otherwise. Blocks deliberately
+    /// so the command reaches the device before the process ends.
     func releaseButtonOnQuit() {
         guard cycleEnabled else { return }
         let cid = UInt16(cycleButtonCID)
@@ -450,12 +448,12 @@ final class MouseModel: ObservableObject {
         }
     }
 
-    /// Verlust und Wiederkehr des Geräts, etwa rund um den Ruhezustand des Rechners.
+    /// Loss and return of the device, around system sleep for instance.
     private func handleConnectionChange(_ isConnected: Bool) {
         connected = isConnected
         guard isConnected else {
             statusMessage = String(localized: "status.deviceNotFound")
-            // Anzeigewerte verwerfen, statt veraltete stehen zu lassen.
+            // Discard the displayed values rather than leaving stale ones.
             batteryPercent = nil
             currentDPI = nil
             hostChannel = nil
@@ -468,15 +466,15 @@ final class MouseModel: ObservableObject {
         loadStaticInfo()
         applyStoredSettings()
         refresh()
-        // Das Gerät verliert die Umleitung beim Trennen; ohne dies bliebe die DPI-Taste
-        // nach dem Aufwachen wirkungslos, obwohl der Schalter sie als aktiv ausweist.
+        // The device loses the diversion when disconnecting; without this the DPI button
+        // would stay dead after waking while the switch still claims it is active.
         if cycleEnabled { applyCycleState() }
     }
 
     private func handleNotification(_ body: [UInt8]) {
         guard cycleEnabled, body.count >= 5 else { return }
         let cid = (UInt16(body[3]) << 8) | UInt16(body[4])
-        // Nur der Druck schaltet weiter; das Loslassen meldet CID 0.
+        // Only the press advances; the release reports CID 0.
         guard cid == UInt16(cycleButtonCID) else { return }
         let steps = cycleSteps
         stepIndex = (stepIndex + 1) % steps.count

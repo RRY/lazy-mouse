@@ -196,7 +196,7 @@ case "buttons":
             let hex = { (v: UInt16) in String(format: "0x%04X", v) }
             for c in controls {
                 let current = try? buttons.reporting(controlID: c.controlID)
-                // Aktuelle Zuordnung nur ausweisen, wenn sie von der nativen abweicht.
+                // Only report the current assignment when it differs from the native one.
                 let remapNote: String
                 if let current = current, current.remappedTaskID != 0, current.remappedTaskID != c.taskID {
                     remapNote = "  -> currently \(hex(current.remappedTaskID))"
@@ -235,13 +235,13 @@ case "buttons":
         }
     case "watch":
         let seconds = args.count >= 3 ? (Double(args[2]) ?? 10) : 10
-        // Tastendrücke kommen als Notification des Buttons-Features; alles andere bleibt roh.
+        // Button presses arrive as notifications of the buttons feature; the rest stays raw.
         let buttonsIndex = try? device.featureIndex(for: SpecialButtonsFeature.featureID)
         print("Listening \(Int(seconds))s for notifications … (press diverted buttons)")
         device.listen(duration: seconds) { body in
             if let buttonsIndex = buttonsIndex, body.count >= 5, body[1] == buttonsIndex {
                 let cid = (UInt16(body[3]) << 8) | UInt16(body[4])
-                // Eine Meldung mit CID 0 signalisiert das Loslassen der zuvor gemeldeten Taste.
+                // A message with CID 0 signals the release of the button reported before.
                 print(cid == 0 ? "  released" : String(format: "  pressed  CID 0x%04X", cid))
             } else {
                 print("  Notification: \(body.map { String(format: "%02X", $0) }.joined(separator: " "))")
@@ -267,8 +267,8 @@ case "name":
     }
 
 case "dpi-cycle":
-    // Standard: die Daumentaste. Sie ist ohne Logitech Options ungenutzt, während die
-    // kleine Taste oberhalb des Scrollrads (0x00C4) nativ die Rasterung umschaltet.
+    // Default: the thumb button. It is unused without Logitech Options, while the small
+    // button above the wheel (0x00C4) natively toggles the ratchet.
     var buttonCID: UInt16 = 0x00C3
     var steps = [1000, 1600, 2400]
     if let idx = args.firstIndex(of: "--button"), args.count > idx + 1,
@@ -286,7 +286,7 @@ case "dpi-cycle":
     let buttonsIndex = try? device.featureIndex(for: SpecialButtonsFeature.featureID)
 
     let originalDPI = (try? dpiFeature.currentDPI().current) ?? steps[0]
-    // Beim nächsten Druck auf den Schritt wechseln, der auf den aktuellen Wert folgt.
+    // On the next press switch to the step following the current value.
     var stepIndex = steps.firstIndex(of: originalDPI) ?? 0
 
     do {
@@ -295,7 +295,7 @@ case "dpi-cycle":
         fail("Could not divert button: \(error)")
     }
 
-    // Aufräumen ist Pflicht: eine umgeleitete Taste bleibt sonst dauerhaft wirkungslos.
+    // Cleaning up is mandatory: a diverted button stays permanently dead otherwise.
     func cleanup() {
         try? buttons.resetReporting(controlID: buttonCID)
         try? dpiFeature.setDPI(originalDPI)
@@ -318,7 +318,7 @@ case "dpi-cycle":
     device.listen(duration: .greatestFiniteMagnitude, shouldStop: { stopping }) { body in
         guard let buttonsIndex = buttonsIndex, body.count >= 5, body[1] == buttonsIndex else { return }
         let cid = (UInt16(body[3]) << 8) | UInt16(body[4])
-        // Nur der Druck schaltet; das Loslassen meldet CID 0 und wird übergangen.
+        // Only the press switches; the release reports CID 0 and is skipped.
         guard cid == buttonCID else { return }
         stepIndex = (stepIndex + 1) % steps.count
         do {

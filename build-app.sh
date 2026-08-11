@@ -1,13 +1,13 @@
 #!/bin/bash
-# Baut Lazy Mouse und installiert es als .app-Bundle.
+# Builds Lazy Mouse and installs it as an .app bundle.
 #
-# SwiftPM erzeugt nur ein nacktes Binary. Für eine Menüleisten-App braucht es ein Bundle:
-# LSUIElement=true unterdrückt das Dock-Symbol, und erst die Bundle-Identität gibt der App
-# einen eigenen Eintrag in der Eingabeüberwachung.
+# SwiftPM only produces a bare binary. A menu bar app needs a bundle: LSUIElement=true
+# suppresses the dock icon, and only the bundle identity gives the app its own entry in
+# Input Monitoring.
 #
-# Ziel ist standardmäßig /Applications: macOS bindet die erteilte Berechtigung an Pfad und
-# Signatur, ein wechselnder Pfad im Projektordner würde sie wiederholt ungültig machen.
-# Abweichendes Ziel als erstes Argument, z. B.:  ./build-app.sh ./build
+# The destination defaults to /Applications: macOS ties the granted permission to path and
+# signature, so a changing path inside the project folder would invalidate it again and
+# again. Pass a different destination as the first argument, e.g. ./build-app.sh ./build
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -18,15 +18,15 @@ cd "$ROOT"
 swift build --product LazyMouse -c release
 BIN="$(swift build --product LazyMouse -c release --show-bin-path)/LazyMouse"
 
-# Läuft eine ältere Fassung, hält sie das Bundle offen und würde inkonsistent überschrieben.
+# A running older copy holds the bundle open and would be overwritten inconsistently.
 pkill -f "Lazy Mouse.app/Contents/MacOS/LazyMouse" 2>/dev/null || true
 sleep 1
 
-# Nur ein Bundle ersetzen, das auch wirklich dieses Programm ist.
+# Only replace a bundle that really is this program.
 if [ -e "$APP" ]; then
     EXISTING_ID="$(defaults read "$APP/Contents/Info" CFBundleIdentifier 2>/dev/null || echo "")"
     if [ "$EXISTING_ID" != "de.ryback.lazymouse" ]; then
-        echo "Abbruch: '$APP' existiert und gehört nicht zu Lazy Mouse (Identifier: '$EXISTING_ID')." >&2
+        echo "Aborting: '$APP' exists and does not belong to Lazy Mouse (identifier: '$EXISTING_ID')." >&2
         exit 1
     fi
     rm -rf "$APP"
@@ -37,63 +37,63 @@ cp "$BIN" "$APP/Contents/MacOS/LazyMouse"
 cp "$ROOT/Sources/LazyMouse/Info.plist" "$APP/Contents/Info.plist"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
-# Sprachdateien direkt nach Contents/Resources statt über SwiftPM-Ressourcen: dann findet
-# sie `Bundle.main`, was SwiftUI und String(localized:) ohne Zutun verwenden. Ein
-# SwiftPM-Ressourcenbündel läge dagegen in einem eigenen .bundle und müsste überall
-# ausdrücklich adressiert werden.
+# String files go straight into Contents/Resources rather than through SwiftPM resources:
+# that way `Bundle.main` finds them, which SwiftUI and String(localized:) use by default. A
+# SwiftPM resource bundle would sit in its own .bundle and would have to be addressed
+# explicitly everywhere.
 cp -R "$ROOT/Resources/"*.lproj "$APP/Contents/Resources/"
 
-# Signieren. Mit eigenem Zertifikat lautet die Designated Requirement
+# Signing. With an own certificate the designated requirement reads
 #   identifier "de.ryback.lazymouse" and certificate root = H"..."
-# also unabhängig vom Programm-Hash — die erteilte Eingabeüberwachung übersteht damit
-# Neubauten. Eine Ad-hoc-Signatur bindet dagegen an den cdhash, der sich bei jedem Build
-# ändert, sodass die Berechtigung jedes Mal neu erteilt werden müsste.
+# and is therefore independent of the program hash — the granted Input Monitoring survives
+# rebuilds. An ad-hoc signature binds to the cdhash instead, which changes with every build,
+# so the permission would have to be granted again each time.
 #
-# Das Zertifikat ist selbstsigniert und muss nicht als vertrauenswürdig eingetragen sein;
-# codesign akzeptiert es auch so. Anlegen (einmalig, siehe README):
+# The certificate is self-signed and does not have to be marked as trusted; codesign accepts
+# it either way. Create it once (see the README):
 #   openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 7300 -nodes \
 #     -subj "/CN=$SIGN_IDENTITY" -addext "basicConstraints=critical,CA:false" \
 #     -addext "keyUsage=critical,digitalSignature" \
 #     -addext "extendedKeyUsage=critical,codeSigning"
 SIGN_IDENTITY="${SIGN_IDENTITY:-Lazy Mouse Local Signing}"
 
-# Bevorzugt eine von Apple ausgestellte Developer ID: nur damit akzeptiert Gatekeeper die
-# App auch auf fremden Rechnern. Sonst das lokale Zertifikat, sonst ad hoc.
-# Das abschließende `|| true` ist nötig: ohne Developer ID liefert grep Exitcode 1, was
-# unter `set -e` mit `pipefail` das ganze Skript beenden würde — die App bliebe unsigniert.
+# Prefers a Developer ID issued by Apple: only with it does Gatekeeper accept the app on
+# other machines. Otherwise the local certificate, otherwise ad hoc.
+# The trailing `|| true` is required: without a Developer ID grep returns exit code 1, which
+# under `set -e` with `pipefail` would end the whole script — leaving the app unsigned.
 DEVELOPER_ID="$(security find-identity -v -p codesigning 2>/dev/null \
     | grep "Developer ID Application" | head -1 | sed -E 's/.*"(.*)"/\1/' || true)"
 
 if [ -n "$DEVELOPER_ID" ]; then
-    # --options runtime (Hardened Runtime) ist Voraussetzung für die Notarisierung,
-    # --timestamp ebenso: ohne beglaubigten Zeitstempel lehnt Apple die Einreichung ab.
+    # --options runtime (hardened runtime) is a prerequisite for notarization, and so is
+    # --timestamp: without a trusted timestamp Apple rejects the submission.
     codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID" "$APP"
-    echo "Signiert mit: $DEVELOPER_ID"
+    echo "Signed with: $DEVELOPER_ID"
 
-    # Notarisierung nur auf Wunsch: sie braucht ein hinterlegtes Anmeldeprofil und
-    # überträgt die App an Apple. Anlegen (einmalig, das Passwort ist ein
-    # app-spezifisches Passwort von appleid.apple.com):
-    #   xcrun notarytool store-credentials LazyMouse --apple-id DEINE-APPLE-ID \
-    #     --team-id DEINE-TEAM-ID --password APP-SPEZIFISCHES-PASSWORT
+    # Notarization only on request: it needs a stored credential profile and uploads the app
+    # to Apple. Create it once (the password is an app-specific password from
+    # appleid.apple.com):
+    #   xcrun notarytool store-credentials LazyMouse --apple-id YOUR-APPLE-ID \
+    #     --team-id YOUR-TEAM-ID --password APP-SPECIFIC-PASSWORD
     if [ -n "${NOTARIZE_PROFILE:-}" ]; then
         ZIP="$(dirname "$APP")/LazyMouse-notarize.zip"
         ditto -c -k --keepParent "$APP" "$ZIP"
         xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARIZE_PROFILE" --wait
-        # Heftet das Ticket an die App, damit sie auch offline als beglaubigt gilt.
+        # Staples the ticket to the app so it counts as notarized offline as well.
         xcrun stapler staple "$APP"
         rm -f "$ZIP"
         spctl -a -vvv -t install "$APP" || true
     else
-        echo "Hinweis: nicht notarisiert. Für den Versand an andere Macs:" >&2
-        echo "         NOTARIZE_PROFILE=<Profilname> ./build-app.sh" >&2
+        echo "Note: not notarized. To hand it to other Macs:" >&2
+        echo "      NOTARIZE_PROFILE=<profile name> ./build-app.sh" >&2
     fi
 elif security find-certificate -c "$SIGN_IDENTITY" >/dev/null 2>&1; then
     codesign --force --sign "$SIGN_IDENTITY" "$APP"
 else
-    echo "Hinweis: Zertifikat '$SIGN_IDENTITY' nicht gefunden, signiere ad hoc." >&2
-    echo "         Die Eingabeüberwachung muss dann nach jedem Build neu erteilt werden." >&2
+    echo "Note: certificate '$SIGN_IDENTITY' not found, signing ad hoc." >&2
+    echo "      Input Monitoring then has to be granted again after every build." >&2
     codesign --force --sign - "$APP"
 fi
 
-echo "Installiert: $APP"
-echo "Starten mit: open '$APP'"
+echo "Installed: $APP"
+echo "Start with: open '$APP'"

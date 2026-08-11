@@ -4,15 +4,15 @@ import HIDPPKit
 struct SettingsView: View {
     @ObservedObject var model: MouseModel
 
-    /// Eingabepuffer für den Gerätenamen, damit nicht jeder Tastendruck ans Gerät geht.
+    /// Input buffer for the device name, so not every keystroke reaches the device.
     @State private var editedName = ""
 
     var body: some View {
         Form {
             if !model.connected {
                 Section {
-                    // Ohne Gerätezugriff bleiben alle folgenden Einstellungen wirkungslos;
-                    // der Grund gehört deshalb an den Anfang, nicht ans Ende.
+                    // Without device access every setting below is without effect, so the
+                    // reason belongs at the top rather than the bottom.
                     Label(model.statusMessage, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                     if model.permissionDenied {
@@ -31,22 +31,22 @@ struct SettingsView: View {
             }
 
             Section(LocalizedStringKey("section.device")) {
-                // Ersetzt das frühere Statusfeld: das zeigte denselben Namen nochmals, den
-                // der Abschnitt darunter schon zum Bearbeiten anbot. Ob eine Verbindung
-                // besteht, steht bei Problemen ohnehin oben im Fenster.
+                // Replaces the former status field: that showed the same name the section
+                // below already offered for editing. Whether a connection exists is stated at
+                // the top of the window anyway whenever something is wrong.
                 TextField(LocalizedStringKey("label.designation"), text: $editedName)
                     .onSubmit { model.setFriendlyName(editedName) }
                     .onChange(of: editedName) { _, new in
-                        // Das Gerät kürzt zu lange Namen stillschweigend; die Grenze gehört
-                        // deshalb schon ins Eingabefeld.
+                        // The device truncates overlong names silently, so the limit belongs
+                        // in the input field already.
                         if new.count > model.friendlyNameMaxLength {
                             editedName = String(new.prefix(model.friendlyNameMaxLength))
                         }
                     }
                     .help(String(format: String(localized: "hint.deviceName"),
                                  model.friendlyNameMaxLength, MouseModel.displayedNameLength))
-                // Nur Probleme stehen auf der Maske: eine Fehlermeldung, die man erst durch
-                // Zeigen findet, wäre keine.
+                // Only problems appear on the form: an error message you have to hover for
+                // would not be one.
                 if let problem = model.friendlyNameProblem {
                     Text(problem)
                         .font(.caption)
@@ -77,8 +77,8 @@ struct SettingsView: View {
 
 
             Section(LocalizedStringKey("section.dpiCycle")) {
-                // Schalter und Tastenauswahl in einem: die Auswahl "Deaktiviert" ersetzt
-                // den früheren Ein/Aus-Schalter, der ohne gewählte Taste ohnehin nichts tat.
+                // Toggle and button selection in one: the "Disabled" entry replaces the
+                // former on/off switch, which did nothing without a button chosen anyway.
                 Picker(LocalizedStringKey("label.button"), selection: Binding(
                     get: { model.cycleEnabled ? model.cycleButtonCID : 0 },
                     set: { selection in
@@ -86,8 +86,8 @@ struct SettingsView: View {
                             model.cycleEnabled = false
                             return
                         }
-                        // Erst die Taste, dann einschalten: das Setzen der Taste gibt die
-                        // vorherige frei, das Einschalten leitet die neue um.
+                        // Button first, then enable: setting the button releases the previous
+                        // one, enabling diverts the new one.
                         if model.cycleButtonCID != selection { model.cycleButtonCID = selection }
                         if !model.cycleEnabled { model.cycleEnabled = true }
                     }
@@ -101,7 +101,7 @@ struct SettingsView: View {
 
                 TextField(LocalizedStringKey("label.steps"), text: $model.cycleStepsRaw)
                     .onSubmit { model.refresh() }
-                    // Der zulässige Bereich kommt vom Gerät; Werte daneben lehnt es ab.
+                    // The permitted range comes from the device; it rejects values beside it.
                     .help({
                         let limits = model.dpiRange.map {
                             String(format: String(localized: "hint.dpiLimits"), $0.min, $0.max, $0.step)
@@ -115,7 +115,7 @@ struct SettingsView: View {
                         .foregroundStyle(Color.orange)
                 }
             }
-            // Alles hier drin greift auf die Maus zu und wäre ohne Verbindung wirkungslos.
+            // Everything in here touches the mouse and would be without effect when offline.
             .disabled(!model.connected)
 
             Section(LocalizedStringKey("section.start")) {
@@ -158,10 +158,10 @@ struct SettingsView: View {
                 ))
                 .help(LocalizedStringKey("hint.invert"))
 
-                // Kein Schalter für die Feinauflösung: das Gerät kennt dafür nur 1 oder 15
-                // Schritte je Raste, und 15 wirkt in der Praxis wie 15-fache Geschwindigkeit
-                // statt wie feineres Scrollen. Zwischenstufen gibt es nicht (siehe README).
-                // Für Versuche bleibt `mxctl scroll hires`.
+                // No switch for the high resolution: the device offers only 1 or 15 steps per
+                // detent for it, and 15 feels like fifteen times the speed rather than finer
+                // scrolling. There are no values in between (see the README). `mxctl scroll
+                // hires` remains for experiments.
 
             }
             .disabled(!model.connected)

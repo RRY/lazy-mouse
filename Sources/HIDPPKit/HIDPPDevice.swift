@@ -1,9 +1,9 @@
 import Foundation
 
-/// Protokoll-Kern: Feature-Discovery über die Root-Feature (0x0000) und ein generischer
-/// Aufrufmechanismus, auf dem die konkreten Feature-Wrapper aufsetzen.
+/// Protocol core: feature discovery through the root feature (0x0000) plus a generic call
+/// mechanism the concrete feature wrappers build on.
 public final class HIDPPDevice {
-    /// 0xFF adressiert bei direkt verbundenen Geräten (Bluetooth/USB-Direct, kein Empfänger) das Gerät selbst.
+    /// For directly connected devices (Bluetooth or USB, no receiver) 0xFF addresses the device itself.
     public static let directDeviceIndex: UInt8 = 0xFF
 
     private let transport: HIDPPTransport
@@ -28,8 +28,8 @@ public final class HIDPPDevice {
         return swIDCounter
     }
 
-    /// Root-Feature 0x0000, Function 0x00 (GetFeature): löst eine 16-Bit Feature-ID
-    /// in den geräteseitigen Feature-Index auf, den alle weiteren Aufrufe referenzieren.
+    /// Root feature 0x0000, function 0x00 (GetFeature): resolves a 16-bit feature ID into
+    /// the device-side feature index that all further calls refer to.
     public func featureIndex(for featureID: UInt16) throws -> UInt8 {
         if let cached = featureIndexCache[featureID] {
             return cached
@@ -44,7 +44,7 @@ public final class HIDPPDevice {
         return index
     }
 
-    /// Generischer Feature-Aufruf.
+    /// Generic feature call.
     @discardableResult
     public func call(featureIndex: UInt8, function: UInt8, params: [UInt8] = [], timeout: TimeInterval = 2.0) throws -> HIDPPResponse {
         try transport.request(
@@ -57,14 +57,14 @@ public final class HIDPPDevice {
         )
     }
 
-    /// Bequemlichkeitsmethode: Feature-ID auflösen und direkt aufrufen.
+    /// Convenience: resolve the feature ID and call it in one step.
     @discardableResult
     public func call(feature featureID: UInt16, function: UInt8, params: [UInt8] = [], timeout: TimeInterval = 2.0) throws -> HIDPPResponse {
         let index = try featureIndex(for: featureID)
         return try call(featureIndex: index, function: function, params: params, timeout: timeout)
     }
 
-    /// Lauscht auf Notifications des Geräts, etwa Tastendrücke umgeleiteter Tasten.
+    /// Listens for device notifications, for instance presses of diverted buttons.
     public func listen(duration: TimeInterval, shouldStop: () -> Bool = { false }, onNotification: ([UInt8]) -> Void) {
         transport.listen(duration: duration, shouldStop: shouldStop, onNotification: onNotification)
     }

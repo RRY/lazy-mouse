@@ -2,37 +2,36 @@ import Foundation
 import IOKit
 import IOKit.hid
 
-/// Low-level transport für HID++ 2.0 über IOKit.
+/// Low-level transport for HID++ 2.0 over IOKit.
 ///
-/// Wichtig für Bluetooth LE auf macOS (empirisch an einer MX Master 3S ermittelt):
+/// What matters for Bluetooth LE on macOS, established empirically on an MX Master 3S:
 ///
-/// * Die HID++ Vendor-Collection erscheint NICHT als eigenes IOHIDDevice, sondern als
-///   zusätzliches Usage-Pair auf demselben Gerät wie die Standard-Maus-Collection
-///   (bei der MX Master 3S: Usage Page 0xFF43). Ein Matching-Dictionary, das auf die
-///   Usage Page filtert, findet das Gerät deshalb nicht — es muss über die Vendor-ID
-///   gematcht und die Collection danach über die Elemente gefunden werden.
+/// * The HID++ vendor collection does NOT appear as its own IOHIDDevice but as an additional
+///   usage pair on the same device as the standard mouse collection (usage page 0xFF43 on the
+///   MX Master 3S). A matching dictionary filtering on the usage page therefore does not find
+///   the device — it has to be matched by vendor ID and the collection identified afterwards
+///   through its elements.
 ///
-/// * Es existiert nur Report-ID 0x11 (Long, 19 Byte Body), kein klassisches 0x10 (Short).
+/// * Only report ID 0x11 exists (long, 19-byte body); there is no classic 0x10 (short).
 ///
-/// * `IOHIDDeviceSetReport` liefert zwar kIOReturnSuccess, sendet aber faktisch nichts.
-///   Gesendet wird ausschließlich über `IOHIDDeviceSetValue` auf dem 19-Byte-Output-
-///   Array-Element der Vendor-Collection.
+/// * `IOHIDDeviceSetReport` returns kIOReturnSuccess but sends nothing at all. Sending only
+///   works through `IOHIDDeviceSetValue` on the 19-byte output array element of the vendor
+///   collection.
 ///
-/// * Empfangen läuft über `IOHIDDeviceRegisterInputReportCallback`. Der Callback liefert
-///   den Report inklusive führender Report-ID, der HID++-Body beginnt also bei Index 1.
-///   Das Input-*Element* taugt nicht als Quelle: es cacht nur den zuletzt empfangenen
-///   Report, und viele SET-Aufrufe lösen unmittelbar nach der Antwort eine Notification
-///   aus, die den Cache innerhalb weniger Millisekunden überschreibt — die Antwort ginge
-///   dabei verloren.
+/// * Receiving goes through `IOHIDDeviceRegisterInputReportCallback`. The callback delivers
+///   the report including the leading report ID, so the HID++ body starts at index 1. The
+///   input *element* is not usable as a source: it only caches the most recently received
+///   report, and many SET calls trigger a notification right after their answer that
+///   overwrites the cache within milliseconds — the answer would be lost.
 ///
-/// Da das Matching die Vendor-ID ohne Usage-Page-Einschränkung verwendet, verlangt macOS
-/// die Berechtigung "Eingabeüberwachung" (Input Monitoring) für die aufrufende Anwendung.
+/// Because the matching uses the vendor ID without restricting the usage page, macOS requires
+/// the "Input Monitoring" permission for the calling application.
 public final class HIDPPTransport {
 
     public static let vendorIDLogitech = 0x046D
-    /// Report-ID aller HID++-Nachrichten auf diesem Transportweg.
+    /// Report ID of every HID++ message on this transport.
     static let reportID: UInt8 = 0x11
-    /// Body-Länge eines HID++ Long-Reports ohne Report-ID.
+    /// Body length of a HID++ long report, excluding the report ID.
     static let reportBodyLength = 19
 
     private var manager: IOHIDManager?
@@ -41,16 +40,15 @@ public final class HIDPPTransport {
 
     private let inputBufferSize = 64
     private let inputBuffer: UnsafeMutablePointer<UInt8>
-    /// Seit dem letzten Request empfangene HID++-Bodies (ohne Report-ID).
+    /// HID++ bodies received since the last request, without the report ID.
     private var receivedBodies: [[UInt8]] = []
 
-    public private(set) var productName: String = "unbekannt"
-    /// Usage Page der gefundenen HID++ Vendor-Collection (z. B. 0xFF43 bei BLE).
+    public private(set) var productName: String = "unknown"
+    /// Usage page of the HID++ vendor collection that was found (0xFF43 over BLE).
     public private(set) var vendorUsagePage: UInt32 = 0
 
-    /// Wird für jede Notification des Geräts (Software-ID 0) aufgerufen, sobald sie
-    /// eintrifft — im Gegensatz zu `listen(...)` ohne zu blockieren. Läuft auf dem Thread,
-    /// dessen RunLoop das Gerät bedient.
+    /// Called for every device notification (software ID 0) as it arrives — unlike
+    /// `listen(...)` without blocking. Runs on the thread whose run loop serves the device.
     public var onNotification: (([UInt8]) -> Void)?
 
     public init() {
@@ -64,32 +62,32 @@ public final class HIDPPTransport {
         inputBuffer.deallocate()
     }
 
-    /// Produkt-ID der MX Master 3S. Wird bevorzugt gewählt, wenn mehrere Logitech-Geräte
-    /// angeschlossen sind; ist sie nicht dabei, kommt jedes Gerät mit HID++-Collection in
-    /// Frage. Bewusst die Produkt-ID statt des Produktnamens: der Name ist über
-    /// `FriendlyNameFeature` änderbar, und nach einer Umbenennung griffe ein Namensfilter
-    /// nicht mehr — die Produkt-ID bleibt.
+    /// Product ID of the MX Master 3S. Preferred when several Logitech devices are attached;
+    /// if it is not among them, any device carrying a HID++ collection qualifies. Deliberately
+    /// the product ID rather than the product name: the name is writable through
+    /// `FriendlyNameFeature`, so a name filter would stop matching after a rename — the
+    /// product ID stays.
     public static let productIDMXMaster3S = 0xB034
 
-    /// Meldet, wenn das Gerät verschwindet oder wieder auftaucht — etwa beim Ruhezustand
-    /// des Rechners. Läuft auf dem Thread, dessen RunLoop den Manager bedient.
+    /// Reports the device disappearing or coming back — around system sleep, for instance.
+    /// Runs on the thread whose run loop serves the manager.
     public var onConnectionChange: ((Bool) -> Void)?
 
     private var preferredProductID: Int?
 
-    /// Meldet den Manager für Zu- und Abgänge an. Ohne das behielte der Transport nach einem
-    /// Ruhezustand die Referenz auf das alte, längst entfernte Gerät: macOS legt beim
-    /// Wiederverbinden ein neues `IOHIDDevice` an, und sämtliche Zugriffe liefen still ins
-    /// Leere, bis die Anwendung neu startet.
+    /// Registers the manager for arrivals and removals. Without this the transport would keep
+    /// its reference to the old, long-removed device after sleep: macOS creates a new
+    /// `IOHIDDevice` on reconnection, and every access would silently go nowhere until the
+    /// application restarts.
     private func registerDeviceCallbacks(_ mgr: IOHIDManager) {
         let context = Unmanaged.passUnretained(self).toOpaque()
         IOHIDManagerRegisterDeviceMatchingCallback(mgr, { context, _, _, device in
             guard let context = context else { return }
             let transport = Unmanaged<HIDPPTransport>.fromOpaque(context).takeUnretainedValue()
-            // Nur einspringen, wenn gerade kein Gerät bedient wird.
+            // Only step in when no device is currently being served.
             guard transport.device == nil else { return }
-            // Nach einem Wiederverbinden dasselbe Modell greifen wie zuvor, sonst könnte
-            // bei mehreren Logitech-Geräten das falsche übernommen werden.
+            // After a reconnection pick the same model as before; otherwise the wrong one
+            // could be adopted when several Logitech devices are present.
             if let wanted = transport.preferredProductID,
                (IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int) != wanted {
                 return
@@ -110,13 +108,13 @@ public final class HIDPPTransport {
         }, context)
     }
 
-    /// Übernimmt ein Gerät, sofern es die HID++-Collection mitbringt.
+    /// Adopts a device, provided it carries the HID++ collection.
     @discardableResult
     private func adopt(_ candidate: IOHIDDevice) -> Bool {
         guard let elements = IOHIDDeviceCopyMatchingElements(candidate, nil, IOOptionBits(kIOHIDOptionsTypeNone)) as? [IOHIDElement] else {
             return false
         }
-        // Das HID++ Output-Array-Element: Vendor-Usage-Page, 19 Bytes à 8 Bit.
+        // The HID++ output array element: vendor usage page, 19 bytes of 8 bits each.
         let out = elements.first { el in
             IOHIDElementGetUsagePage(el) >= 0xFF00
                 && IOHIDElementGetType(el) == kIOHIDElementTypeOutput
@@ -137,7 +135,7 @@ public final class HIDPPTransport {
             { context, _, _, _, reportID, report, reportLength in
                 guard let context = context, UInt8(truncatingIfNeeded: reportID) == HIDPPTransport.reportID else { return }
                 let transport = Unmanaged<HIDPPTransport>.fromOpaque(context).takeUnretainedValue()
-                // Der Callback liefert die Report-ID als erstes Byte mit.
+                // The callback includes the report ID as the first byte.
                 let raw = Array(UnsafeBufferPointer(start: report, count: reportLength))
                 guard raw.count > 1 else { return }
                 let body = Array(raw.dropFirst())
@@ -150,8 +148,8 @@ public final class HIDPPTransport {
         )
 
         device = candidate
-        // Die tatsächlich übernommene Produkt-ID wird zur Vorgabe für spätere Zugänge —
-        // auch dann, wenn beim ersten Verbinden auf ein anderes Modell ausgewichen wurde.
+        // The product ID actually adopted becomes the preference for later arrivals — even
+        // when the first connection fell back to a different model.
         preferredProductID = IOHIDDeviceGetProperty(candidate, kIOHIDProductIDKey as CFString) as? Int
         self.outputElement = outputElement
         productName = (IOHIDDeviceGetProperty(candidate, kIOHIDProductKey as CFString) as? String) ?? "Logitech device"
@@ -171,7 +169,7 @@ public final class HIDPPTransport {
         }
         self.manager = mgr
         registerDeviceCallbacks(mgr)
-        // Der Manager muss auf der RunLoop liegen, sonst kämen die Zu-/Abgangsmeldungen nie an.
+        // The manager has to sit on the run loop, or arrival and removal never arrive.
         IOHIDManagerScheduleWithRunLoop(mgr, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
 
         guard let deviceSet = IOHIDManagerCopyDevices(mgr) as? Set<IOHIDDevice>, !deviceSet.isEmpty else {
@@ -195,23 +193,23 @@ public final class HIDPPTransport {
         throw HIDPPError.deviceNotFound
     }
 
-    /// Ob gerade ein Gerät bedient wird.
+    /// Whether a device is currently being served.
     public var isConnected: Bool { device != nil }
 
-    /// Prüft, ob ein empfangener Body die Antwort auf einen Request mit dieser Software-ID ist.
+    /// Checks whether a received body is the answer to a request with this software ID.
     ///
-    /// Bei Fehlerantworten (`body[1] == 0xFF`) steht das Funktions-/SwID-Byte an Position 3
-    /// statt 2, weil sich die ursprüngliche Feature-Adresse dazwischenschiebt.
+    /// In error responses (`body[1] == 0xFF`) the function/swID byte sits at position 3
+    /// instead of 2, because the original feature address is inserted in between.
     private static func matches(body: [UInt8], swID: UInt8) -> Bool {
         guard body.count >= 4 else { return false }
         let funcSw = body[1] == 0xFF ? body[3] : body[2]
         return (funcSw & 0x0F) == swID
     }
 
-    /// Sendet einen HID++ Request und wartet auf die zugehörige Antwort.
+    /// Sends a HID++ request and waits for the matching answer.
     ///
-    /// Notifications des Geräts (Software-ID 0) werden dabei übergangen; sie treffen bei
-    /// SET-Aufrufen regelmäßig kurz nach der eigentlichen Antwort ein.
+    /// Device notifications (software ID 0) are skipped; on SET calls they regularly arrive
+    /// shortly after the answer itself.
     public func request(
         deviceIndex: UInt8,
         featureIndex: UInt8,
@@ -255,9 +253,9 @@ public final class HIDPPTransport {
         throw HIDPPError.timeout
     }
 
-    /// Lauscht auf Notifications des Geräts (Software-ID 0) — etwa Tastendrücke einer
-    /// per `divert` umgeleiteten Taste. Blockiert bis `duration` abgelaufen ist oder
-    /// `shouldStop` true liefert.
+    /// Listens for device notifications (software ID 0) — presses of a button redirected via
+    /// `divert`, for instance. Blocks until `duration` has elapsed or `shouldStop` returns
+    /// true.
     public func listen(duration: TimeInterval, shouldStop: () -> Bool = { false }, onNotification: ([UInt8]) -> Void) {
         receivedBodies.removeAll()
         var delivered = 0
@@ -275,13 +273,13 @@ public final class HIDPPTransport {
     }
 }
 
-/// Geparste Antwort auf einen HID++-Request.
+/// Parsed answer to a HID++ request.
 public struct HIDPPResponse {
     public let featureIndex: UInt8
     public let function: UInt8
     public let params: [UInt8]
 
-    /// HID++ 2.0 Fehlerantwort: [deviceIndex, 0xFF, originalFeatureIndex, originalFuncSw, errorCode, ...]
+    /// HID++ 2.0 error response: [deviceIndex, 0xFF, originalFeatureIndex, originalFuncSw, errorCode, ...]
     init(body: [UInt8]) throws {
         guard body.count >= 3 else { throw HIDPPError.malformedResponse }
         if body[1] == 0xFF {

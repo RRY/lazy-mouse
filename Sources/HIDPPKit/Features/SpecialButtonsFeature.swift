@@ -1,10 +1,7 @@
 import Foundation
 
-/// Feature 0x1B04 (Special Keys / Mouse Buttons) — enumeriert die programmierbaren Tasten
-/// (Vor/Zurück, Gesten-Taste, Rad-Kippfunktion etc.) und erlaubt On-Device-Remapping auf
-/// eine andere Task-ID. Rohe Control-/Task-IDs statt symbolischer Namen: die exakte
-/// Bit-Semantik der Capability-/Report-Flags ist geräteabhängig und sollte vor einem
-/// "diverted"/Software-Remap gegen die reale MX Master 3S verifiziert werden.
+/// Feature 0x1B04 (Special Keys / Mouse Buttons) — enumerates the programmable buttons
+/// (back, forward, gesture button, wheel tilt and so on) and controls how they report.
 public struct SpecialButtonsFeature {
     public static let featureID: UInt16 = 0x1B04
 
@@ -16,17 +13,17 @@ public struct SpecialButtonsFeature {
         public let group: UInt8
         public let groupMask: UInt8
 
-        /// Nur umleitbare Tasten lassen sich für eigene Aktionen verwenden. Das Bit schützt
-        /// zugleich vor Unfug: Links- und Rechtsklick sind nicht umleitbar und tauchen
-        /// deshalb in einer danach gefilterten Auswahl gar nicht erst auf.
+        /// Only divertable buttons can be put to own use. The bit doubles as a safeguard:
+        /// left and right click are not divertable and therefore never show up in a
+        /// selection filtered by it.
         public var isDivertable: Bool { flags & 0x20 != 0 }
 
-        /// Sprechender Name, soweit die Control-ID bekannt ist.
+        /// Readable name, as far as the control ID is known.
         public var name: String { SpecialButtonsFeature.name(forControlID: controlID) }
     }
 
-    /// Namen der geläufigen Control-IDs. Unbekannte werden hexadezimal ausgewiesen, damit
-    /// die Auswahl auch bei fremden Modellen brauchbar bleibt.
+    /// Names of the common control IDs. Unknown ones are shown in hex so the selection
+    /// stays usable on unfamiliar models.
     public static func name(forControlID cid: UInt16) -> String {
         switch cid {
         case 0x0050: return "Left click"
@@ -55,7 +52,7 @@ public struct SpecialButtonsFeature {
         return Int(c)
     }
 
-    /// Function 0x01: GetCidInfo(index) — liefert die vollständige Liste der Controls.
+    /// Function 0x01: GetCidInfo(index) — returns the complete list of controls.
     public func listControls() throws -> [Control] {
         let n = try count()
         var controls: [Control] = []
@@ -73,16 +70,16 @@ public struct SpecialButtonsFeature {
         return controls
     }
 
-    /// Aktuelle Zuordnung einer Taste — im Gegensatz zu `Control` (statische Geräteinfo)
-    /// spiegelt das den tatsächlich gesetzten Remap-Zustand wider.
+    /// Current assignment of a button — unlike `Control`, which is static device info, this
+    /// reflects the remap state actually in effect.
     public struct Reporting {
         public let controlID: UInt16
         public let flags: UInt8
-        /// Aktuell zugeordnete Task-ID (entspricht der nativen, solange nichts umgemappt ist).
+        /// Currently assigned task ID (equals the native one as long as nothing is remapped).
         public let remappedTaskID: UInt16
     }
 
-    /// Function 0x02: GetCidReporting — liest die aktuelle Zuordnung einer Taste.
+    /// Function 0x02: GetCidReporting — reads the current assignment of a button.
     public func reporting(controlID: UInt16) throws -> Reporting {
         let response = try device.call(
             feature: SpecialButtonsFeature.featureID,
@@ -95,9 +92,9 @@ public struct SpecialButtonsFeature {
         return Reporting(controlID: cid, flags: response.params[2], remappedTaskID: remapped)
     }
 
-    /// Flag-Bits in `SetCidReporting`/`GetCidReporting`. Jede Einstellung hat ein Wert-Bit
-    /// und ein zugehöriges "valid"-Bit; nur wenn letzteres gesetzt ist, übernimmt das Gerät
-    /// den Wert. Empirisch an der MX Master 3S bestätigt.
+    /// Flag bits in `SetCidReporting`/`GetCidReporting`. Every setting has a value bit and a
+    /// matching "valid" bit; the device only applies the value if the latter is set.
+    /// Confirmed empirically on the MX Master 3S.
     private enum Flag {
         static let divert: UInt8 = 0x01
         static let divertValid: UInt8 = 0x02
@@ -109,16 +106,15 @@ public struct SpecialButtonsFeature {
 
     /// Function 0x03: SetCidReporting.
     ///
-    /// Parameter-Layout (Feature-Version 5): `cid(2), flags(1), reserved(1), remap(2)`.
-    /// Das reservierte Byte muss 0 sein — jeder andere Wert quittiert das Gerät mit
-    /// INVALID_ARGUMENT.
+    /// Parameter layout (feature version 5): `cid(2), flags(1), reserved(1), remap(2)`. The
+    /// reserved byte must be 0 — any other value is answered with INVALID_ARGUMENT.
     ///
-    /// **Kein On-Device-Remapping:** Das Remap-Feld wird von der MX Master 3S zwar
-    /// entgegengenommen, aber nie übernommen — `GetCidReporting` liefert danach unverändert
-    /// 0x0000. Getestet wurden alle Flag-Bits sowie beide Byte-Layouts. Tastenbelegung wie
-    /// in Logi Options+ läuft deshalb nicht auf dem Gerät, sondern über `divert`: die Taste
-    /// meldet ihren Druck dann als HID++-Notification an den Host, der die gewünschte Aktion
-    /// selbst ausführt (setzt einen dauerhaft laufenden Prozess voraus).
+    /// **No on-device remapping:** the MX Master 3S accepts the remap field but never applies
+    /// it — `GetCidReporting` keeps returning 0x0000 afterwards. Every flag bit and both byte
+    /// layouts were tested. Button remapping as in Logi Options+ therefore does not happen on
+    /// the device but through `divert`: the button then reports its press as a HID++
+    /// notification to the host, which carries out the wanted action itself. That requires a
+    /// permanently running process.
     private func setReporting(controlID: UInt16, flags: UInt8) throws {
         try device.call(
             feature: SpecialButtonsFeature.featureID,
@@ -127,14 +123,14 @@ public struct SpecialButtonsFeature {
         )
     }
 
-    /// Leitet die Tastendrücke einer Taste als HID++-Notification an den Host um, statt die
-    /// native Aktion auszulösen. Ohne einen Prozess, der diese Notifications verarbeitet,
-    /// ist die Taste damit faktisch wirkungslos.
+    /// Redirects a button's presses to the host as HID++ notifications instead of triggering
+    /// the native action. Without a process handling those notifications the button is
+    /// effectively dead.
     public func setDivert(controlID: UInt16, enabled: Bool) throws {
         try setReporting(controlID: controlID, flags: Flag.divertValid | (enabled ? Flag.divert : 0))
     }
 
-    /// Setzt alle Reporting-Flags einer Taste auf den Auslieferungszustand zurück.
+    /// Resets all reporting flags of a button to their factory state.
     public func resetReporting(controlID: UInt16) throws {
         try setReporting(controlID: controlID, flags: Flag.divertValid | Flag.persistValid | Flag.rawXYValid)
     }
