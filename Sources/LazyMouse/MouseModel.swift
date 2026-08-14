@@ -154,6 +154,16 @@ final class MouseModel: ObservableObject {
     /// Runs only while there is no usable connection.
     private var retryTimer: Timer?
 
+    /// Battery changes slowly; an interval of one minute is enough. Started from both the
+    /// initial connection and a later recovery — a failed first attempt used to leave the
+    /// app without any periodic refresh even after it found the device again.
+    private func startRefreshTimer() {
+        guard refreshTimer == nil else { return }
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refresh() }
+        }
+    }
+
     /// The connection has stopped answering.
     ///
     /// This can happen without the device disappearing: after a system start it is adopted
@@ -222,10 +232,7 @@ final class MouseModel: ObservableObject {
             loadStaticInfo()
             applyStoredSettings()
             refresh()
-            // Battery changes slowly; an interval of one minute is enough.
-            refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-                Task { @MainActor in self?.refresh() }
-            }
+            startRefreshTimer()
         case .failed(let error):
             connected = false
             permissionDenied = (error as? HIDPPError)?.isPermissionDenied ?? false
@@ -466,6 +473,7 @@ final class MouseModel: ObservableObject {
         loadStaticInfo()
         applyStoredSettings()
         refresh()
+        startRefreshTimer()
         // The device loses the diversion when disconnecting; without this the DPI button
         // would stay dead after waking while the switch still claims it is active.
         if cycleEnabled { applyCycleState() }

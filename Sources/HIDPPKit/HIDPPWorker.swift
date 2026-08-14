@@ -74,10 +74,16 @@ public final class HIDPPWorker {
                 guard let handler = self.onConnectionChange else { return }
                 DispatchQueue.main.async { handler(connected) }
             }
+            // Transport und Gerät unabhängig vom Ausgang festhalten. Zuvor geschah das nur
+            // im Erfolgsfall, und ein fehlgeschlagener Erstversuch — beim Systemstart die
+            // Regel, weil die App vor der Bluetooth-Verbindung läuft — ließ `device` für
+            // immer nil. Der Transport meldete die auftauchende Maus dann zwar, aber jeder
+            // Zugriff scheiterte an notConnected, auch der Wiederholungsversuch: die App
+            // erholte sich erst durch einen Neustart.
+            self.transport = transport
+            self.device = HIDPPDevice(transport: transport)
             do {
                 let name = try transport.connect(preferredProductID: preferredProductID)
-                self.transport = transport
-                self.device = HIDPPDevice(transport: transport)
                 self.state = .connected(productName: name)
             } catch {
                 self.state = .failed(error)
