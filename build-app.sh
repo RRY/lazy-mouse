@@ -15,8 +15,11 @@ DEST_DIR="${1:-/Applications}"
 APP="$DEST_DIR/Lazy Mouse.app"
 cd "$ROOT"
 
-swift build --product LazyMouse -c release
-BIN="$(swift build --product LazyMouse -c release --show-bin-path)/LazyMouse"
+# Built for both architectures so the app also runs on Intel Macs. SwiftPM merges the slices
+# into one binary itself; `lipo` is not needed.
+ARCHS=(--arch arm64 --arch x86_64)
+swift build --product LazyMouse -c release "${ARCHS[@]}"
+BIN="$(swift build --product LazyMouse -c release "${ARCHS[@]}" --show-bin-path)/LazyMouse"
 
 # A running older copy holds the bundle open and would be overwritten inconsistently.
 pkill -f "Lazy Mouse.app/Contents/MacOS/LazyMouse" 2>/dev/null || true
