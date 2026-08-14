@@ -75,6 +75,14 @@ while showing nothing — no warning triangle, no data. Its first read is theref
 now, and a failure marks the connection as lost and starts a retry every five seconds until
 the device answers again.
 
+The failed *first* attempt needs care of its own. `HIDPPWorker` used to keep transport and
+device only when connecting succeeded, so after a system start — where the app regularly
+runs before Bluetooth has the mouse — the device reference stayed nil forever. The transport
+reported the arriving mouse correctly, but every access failed with `notConnected`, the retry
+included; only a restart of the app helped. Both are therefore kept regardless of the
+outcome. Verified with the mouse switched off at launch: the same process picked it up on
+its own and wrote the stored settings back.
+
 `HIDPPTransport` registers matching and removal callbacks on the IOHID manager
 and adopts the new device on its own. On reconnect the app re-reads everything and **sets
 the button diversion again** — the device forgets it when disconnecting, so the DPI button

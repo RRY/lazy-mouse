@@ -60,6 +60,14 @@ als verbunden auswies und dabei nichts anzeigte — kein Warndreieck, keine Date
 Abfrage ist deshalb jetzt verbindlich; scheitert sie, gilt die Verbindung als verloren und
 die App versucht es alle fünf Sekunden erneut, bis das Gerät wieder antwortet.
 
+Der gescheiterte *erste* Versuch braucht eigene Sorgfalt. `HIDPPWorker` hielt Transport und
+Gerät nur fest, wenn das Verbinden gelang — nach einem Systemstart, wo die App regelmäßig vor
+der Bluetooth-Verbindung läuft, blieb die Geräte-Referenz damit für immer leer. Der Transport
+meldete die auftauchende Maus zwar korrekt, aber jeder Zugriff scheiterte an `notConnected`,
+auch die Wiederholung; nur ein Neustart der App half. Beides wird deshalb unabhängig vom
+Ausgang festgehalten. Mit ausgeschalteter Maus beim Start nachgeprüft: derselbe Prozess nahm
+sie von allein auf und schrieb die gespeicherten Einstellungen zurück.
+
 `HIDPPTransport` meldet sich beim IOHID-Manager für Zu- und Abgänge an und übernimmt
 das neue Gerät selbständig. Bei Wiederkehr liest die App alles neu und **setzt die
 Tastenumleitung erneut** — die vergisst das Gerät beim Trennen, die DPI-Taste wäre sonst
