@@ -19,6 +19,17 @@ and drag the app to Applications. It is signed with a Developer ID and notarized
 without a warning. On first launch macOS asks for Input Monitoring — without it the app
 cannot reach the mouse.
 
+Or through Homebrew:
+
+```
+brew tap RRY/tap
+brew trust rry/tap
+brew install --cask lazy-mouse
+```
+
+`brew trust` is required: since Homebrew 6 a cask from a third-party tap is refused until the
+tap is trusted explicitly.
+
 Building from source is described under [Menu bar app](#menu-bar-app).
 
 ## Scope and caveats

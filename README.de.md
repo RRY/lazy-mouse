@@ -13,6 +13,17 @@ laden und die App nach „Programme" ziehen. Sie ist mit einer Developer ID sign
 notarisiert, öffnet also ohne Warnung. Beim ersten Start verlangt macOS die
 Eingabeüberwachung — ohne sie erreicht die App die Maus nicht.
 
+Oder über Homebrew:
+
+```
+brew tap RRY/tap
+brew trust rry/tap
+brew install --cask lazy-mouse
+```
+
+`brew trust` ist Pflicht: Seit Homebrew 6 wird ein Cask aus einem fremden Tap abgewiesen,
+solange der Tap nicht ausdrücklich als vertrauenswürdig markiert ist.
+
 Der Bau aus den Quellen ist unter [Menüleisten-App](#menüleisten-app) beschrieben.
 
 ## Menüleisten-App
