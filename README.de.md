@@ -26,6 +26,17 @@ solange der Tap nicht ausdrücklich als vertrauenswürdig markiert ist.
 
 Der Bau aus den Quellen ist unter [Menüleisten-App](#menüleisten-app) beschrieben.
 
+## Architektur und Prüfstand
+
+Die App ist ein Universal Binary. Ein Intel-Mac stand zum Testen nicht zur Verfügung, deshalb
+lief die `x86_64`-Hälfte stattdessen unter Rosetta 2 auf Apple Silicon: Sie bediente die Maus
+über den kompletten IOKit- und HID++-Pfad, `mxctl status` lieferte dieselben Werte wie der
+native Bau, und die App stellte ihre gespeicherte DPI-Einstellung wieder her. Echte
+Intel-Hardware ersetzt das nicht.
+
+Entwickelt und geprüft wurde alles gegen **eine MX Master 3S, direkt über Bluetooth LE
+gekoppelt**, unter macOS 26.
+
 ## Menüleisten-App
 
 ```

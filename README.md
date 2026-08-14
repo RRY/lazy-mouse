@@ -34,6 +34,11 @@ Building from source is described under [Menu bar app](#menu-bar-app).
 
 ## Scope and caveats
 
+The app is a universal binary. No Intel Mac was available for testing, so the `x86_64` slice
+was exercised under Rosetta 2 on Apple silicon instead: it drove the mouse through the full
+IOKit and HID++ path, `mxctl status` returned the same values as the native build, and the app
+restored its stored DPI setting. That is not a substitute for real Intel hardware.
+
 Everything here was developed and verified against **one MX Master 3S paired directly over
 Bluetooth LE** on macOS 26. Other modern MX models on a direct Bluetooth connection are
 likely to work — feature discovery is dynamic — but they have not been tested. Unifying and
