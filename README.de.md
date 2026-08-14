@@ -6,6 +6,15 @@ Konfiguriert eine MX Master 3S **über Bluetooth LE**, ohne Logitech Options+.
 Reiner Userspace, kein Kernel-Treiber. Zwei Oberflächen auf derselben Bibliothek:
 die Menüleisten-App `Lazy Mouse` und das CLI `mxctl`.
 
+## Installation
+
+Das Disk-Image aus dem [aktuellen Release](https://github.com/RRY/lazy-mouse/releases/latest)
+laden und die App nach „Programme" ziehen. Sie ist mit einer Developer ID signiert und
+notarisiert, öffnet also ohne Warnung. Beim ersten Start verlangt macOS die
+Eingabeüberwachung — ohne sie erreicht die App die Maus nicht.
+
+Der Bau aus den Quellen ist unter [Menüleisten-App](#menüleisten-app) beschrieben.
+
 ## Menüleisten-App
 
 ```

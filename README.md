@@ -12,6 +12,15 @@ Pure userspace, no kernel driver. Two front ends on one library: the menu bar ap
 > "Logi Options+" are trademarks of Logitech and are used here only to identify the
 > hardware this tool talks to.
 
+## Install
+
+Download the disk image from the [latest release](https://github.com/RRY/lazy-mouse/releases/latest)
+and drag the app to Applications. It is signed with a Developer ID and notarized, so it opens
+without a warning. On first launch macOS asks for Input Monitoring — without it the app
+cannot reach the mouse.
+
+Building from source is described under [Menu bar app](#menu-bar-app).
+
 ## Scope and caveats
 
 Everything here was developed and verified against **one MX Master 3S paired directly over
