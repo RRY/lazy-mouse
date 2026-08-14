@@ -141,7 +141,16 @@ keychain. A different name can be set through `SIGN_IDENTITY`.
 
 If an Apple-issued **Developer ID** is present, the script prefers it and signs with
 hardened runtime and a timestamp. With `NOTARIZE_PROFILE=<name>` set it also submits the
-app for notarization and staples the ticket.
+app for notarization and staples the ticket. Notarization took 18 minutes here; Apple gives
+no guaranteed turnaround.
+
+Switching from the local certificate to a Developer ID **invalidates the granted Input
+Monitoring**. The requirement changes from `certificate root = H"…"` to
+`anchor apple generic and certificate leaf[subject.OU] = <team ID>`, and TCC treats that as a
+different program: the app runs but cannot reach the device, and it does not write its stored
+settings back. Remove the old entry under Privacy & Security → Input Monitoring with the
+minus button, add the app again and restart it — toggling the existing entry is often not
+enough. This happens once; later rebuilds with the same Developer ID keep the requirement.
 
 ## CLI
 

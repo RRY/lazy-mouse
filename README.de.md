@@ -124,6 +124,20 @@ security import identity.p12 -k ~/Library/Keychains/login.keychain-db \
 Danach `key.pem`, `cert.pem` und `identity.p12` löschen — der private Schlüssel liegt im
 Schlüsselbund. Ein abweichender Name lässt sich über `SIGN_IDENTITY` setzen.
 
+Liegt eine von Apple ausgestellte **Developer ID** vor, zieht das Skript sie vor und signiert
+mit Hardened Runtime und Zeitstempel. Mit gesetztem `NOTARIZE_PROFILE=<name>` reicht es die
+App zusätzlich zur Notarisierung ein und heftet das Ticket an. Hier dauerte das 18 Minuten;
+eine zugesicherte Bearbeitungszeit nennt Apple nicht.
+
+Der Wechsel vom lokalen Zertifikat zur Developer ID **entwertet die erteilte
+Eingabeüberwachung**. Die Anforderung lautet dann nicht mehr `certificate root = H"…"`,
+sondern `anchor apple generic and certificate leaf[subject.OU] = <Team-ID>`, und für TCC ist
+das ein anderes Programm: Die App läuft, erreicht das Gerät aber nicht und schreibt ihre
+gespeicherten Einstellungen nicht zurück. Unter Datenschutz & Sicherheit → Eingabeüberwachung
+den alten Eintrag mit dem Minus entfernen, die App neu hinzufügen und neu starten — den
+vorhandenen Eintrag bloß umzuschalten genügt oft nicht. Das fällt einmalig an; spätere
+Neubauten mit derselben Developer ID behalten die Anforderung.
+
 ## CLI
 
 ```
