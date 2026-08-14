@@ -138,6 +138,28 @@ den alten Eintrag mit dem Minus entfernen, die App neu hinzufügen und neu start
 vorhandenen Eintrag bloß umzuschalten genügt oft nicht. Das fällt einmalig an; spätere
 Neubauten mit derselben Developer ID behalten die Anforderung.
 
+## Weitergabe
+
+```
+./make-dmg.sh                              # signiertes Image in dist/
+NOTARIZE_PROFILE=<profil> ./make-dmg.sh    # zusätzlich notarisiert und angeheftet
+```
+
+Ein Image statt eines Installationspakets: Das Programm ist ein einzelnes Bundle, der
+Autostart registriert sich über `SMAppService` selbst, und außerhalb von `/Applications`
+landet nichts. Ein `.pkg` bräuchte zusätzlich ein eigenes *Developer ID Installer*-Zertifikat,
+während das Image mit derselben *Developer ID Application* signiert wird wie die App.
+
+Das Image enthält einen Symlink nach `/Applications`. Das ist keine Zierde — macOS bindet die
+erteilte Eingabeüberwachung an den Pfad der App, eine in `~/Downloads` liegengebliebene Kopie
+verliert die Freigabe beim Verschieben.
+
+Das Image zu notarisieren lohnt sich, obwohl die App darin ihr Ticket bereits trägt: Ohne das
+warnt Gatekeeper schon beim Öffnen des Images, bevor die App überhaupt zu sehen ist.
+
+`dist/` steht nicht unter Versionskontrolle; Bauartefakte gehören in ein Release, nicht ins
+Repository.
+
 ## CLI
 
 ```

@@ -152,6 +152,27 @@ settings back. Remove the old entry under Privacy & Security → Input Monitorin
 minus button, add the app again and restart it — toggling the existing entry is often not
 enough. This happens once; later rebuilds with the same Developer ID keep the requirement.
 
+## Distribution
+
+```
+./make-dmg.sh                              # signed disk image in dist/
+NOTARIZE_PROFILE=<profile> ./make-dmg.sh   # additionally notarized and stapled
+```
+
+A disk image rather than an installer package: the program is a single bundle, the login item
+registers itself through `SMAppService`, and nothing is placed outside `/Applications`. A
+`.pkg` would additionally require its own *Developer ID Installer* certificate, while the
+image is signed with the same *Developer ID Application* identity as the app.
+
+The image contains a symlink to `/Applications`. That is not decoration — macOS ties the
+granted Input Monitoring to the app's path, so a copy left in `~/Downloads` loses the
+permission the moment it is moved.
+
+Notarizing the image is worthwhile even though the app inside already carries its ticket:
+without it Gatekeeper warns when the image is opened, before the app is ever seen.
+
+`dist/` is not tracked; build artefacts belong in a release, not in the repository.
+
 ## CLI
 
 ```
