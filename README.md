@@ -52,6 +52,12 @@ Bolt receivers are **not** supported, nor are older HID++ 1.0 devices. See
 open "/Applications/Lazy Mouse.app"
 ```
 
+| Menu bar | Settings |
+|---|---|
+| <img src="docs/screenshots/menu.png" alt="Menu bar icon showing the battery level, with the menu open" width="360"> | <img src="docs/screenshots/settings.png" alt="Settings window with device, DPI button, launch at login and scroll wheel sections" width="300"> |
+
+*(The interface follows the system language; shown here in German.)*
+
 The icon shows the battery level right in the menu bar. The menu offers DPI steps, the
 scroll wheel mode, the toggle for the DPI button and launch-at-login. The settings window
 (⌘,) additionally lets you pick the button and the DPI steps.

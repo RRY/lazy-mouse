@@ -44,6 +44,10 @@ gekoppelt**, unter macOS 26.
 open "/Applications/Lazy Mouse.app"
 ```
 
+| Menüleiste | Einstellungen |
+|---|---|
+| <img src="docs/screenshots/menu.png" alt="Symbol in der Menüleiste mit Batteriestand, Menü geöffnet" width="360"> | <img src="docs/screenshots/settings.png" alt="Einstellungsfenster mit den Abschnitten Gerät, DPI-Umschaltung, Start und Scrollrad" width="300"> |
+
 Das Symbol zeigt den Batteriestand direkt in der Menüleiste. Das Menü bietet DPI-Stufen,
 den Scrollrad-Modus, den Schalter für die DPI-Taste und den Autostart. Das
 Einstellungsfenster (⌘,) erlaubt zusätzlich die Wahl der Taste und der DPI-Stufen.
