@@ -85,6 +85,22 @@ The practical consequence: without the app running, the mouse falls back to its 
 behaviour after the next power cycle. Launch at login is less a convenience than a
 prerequisite.
 
+### When launch-at-login drifts
+
+The registration goes through `SMAppService` and is bound to the app bundle. Replacing that
+bundle — a rebuild, a Homebrew install or uninstall — can orphan it: the entry stays under
+System Settings → General → Login Items and keeps starting the app, while the app's own
+toggle shows launch-at-login as off. Both are telling the truth. The toggle reads
+`SMAppService.mainApp.status`, and nothing is registered there any more; the item that
+actually starts the app is a leftover the app has no way to see.
+
+Observed after the bundle had been replaced four times within one session. To repair it,
+remove the entry in System Settings **first**, then switch the toggle back on — in that
+order, or two entries end up side by side.
+
+The app deliberately keeps no second copy of this state. A private copy would drift from the
+system more often rather than less, and there is no current API to query a legacy login item.
+
 ### Reconnecting after sleep
 
 macOS discards the `IOHIDDevice` when the mouse disconnects and creates a **new** one when

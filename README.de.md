@@ -76,6 +76,24 @@ Verbindung ins Gerät. Nie gesetzte Werte bleiben unberührt, damit ein erster S
 Praktische Folge: Ohne laufende App fällt die Maus nach dem nächsten Einschalten auf ihr
 Werksverhalten zurück. Der Autostart ist damit weniger Bequemlichkeit als Voraussetzung.
 
+### Wenn der Autostart auseinanderläuft
+
+Die Registrierung läuft über `SMAppService` und hängt am App-Bundle. Wird das ersetzt — ein
+Neubau, eine Installation oder Deinstallation über Homebrew —, kann sie verwaisen: Der Eintrag
+bleibt unter Systemeinstellungen → Allgemein → Anmeldeobjekte stehen und startet die App
+weiterhin, während der Schalter in der App den Autostart als ausgeschaltet ausweist. Beide
+sagen die Wahrheit. Der Schalter liest `SMAppService.mainApp.status`, und dort ist nichts mehr
+registriert; der Eintrag, der die App tatsächlich startet, ist ein Überbleibsel, das die App
+nicht sehen kann.
+
+Beobachtet, nachdem das Bundle innerhalb einer Sitzung viermal ausgetauscht worden war. Zum
+Beheben **zuerst** den Eintrag in den Systemeinstellungen entfernen, dann den Schalter wieder
+einschalten — in dieser Reihenfolge, sonst stehen am Ende zwei Einträge nebeneinander.
+
+Die App führt bewusst keine zweite Kopie dieses Zustands. Eine eigene Kopie würde häufiger vom
+System abweichen statt seltener, und für ein klassisches Anmeldeobjekt gibt es keine aktuelle
+Abfrage mehr.
+
 ### Wiederverbinden nach dem Ruhezustand
 
 macOS verwirft das `IOHIDDevice`, sobald die Maus verschwindet, und legt bei ihrer Rückkehr
