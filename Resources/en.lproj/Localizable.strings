@@ -36,6 +36,7 @@
 "value.batteryCharging" = "%d %% (charging)";
 "value.battery" = "%d %%";
 "value.channel" = "%1$d of %2$d";
+"value.version" = "Version %1$@ (%2$@)";
 
 /* Status messages */
 "status.notConnected" = "Not connected";
