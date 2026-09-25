@@ -7,7 +7,17 @@ struct SettingsView: View {
     /// Input buffer for the device name, so not every keystroke reaches the device.
     @State private var editedName = ""
 
+    /// Shown at the foot of the window so a bug report can name the exact version without a
+    /// separate About panel, which a pure menu bar app has no natural place for anyway.
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return String(format: String(localized: "value.version"), short, build)
+    }
+
     var body: some View {
+        VStack(spacing: 0) {
         Form {
             if !model.connected {
                 Section {
@@ -167,6 +177,13 @@ struct SettingsView: View {
             .disabled(!model.connected)
         }
         .formStyle(.grouped)
+
+        Text(appVersion)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .textSelection(.enabled)
+            .padding(.bottom, 12)
+        }
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
     }
