@@ -1,0 +1,31 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: swift --version
+
+      - name: Lint property lists and string files
+        run: plutil -lint Sources/LazyMouse/Info.plist Sources/gattscan/Info.plist Resources/*.lproj/Localizable.strings
+
+      - name: Build all targets
+        run: swift build
+
+      - name: Build app bundle (universal, ad-hoc signed)
+        run: ./build-app.sh "$RUNNER_TEMP/app"
+
+      - name: Check bundle
+        run: |
+          APP="$RUNNER_TEMP/app/Lazy Mouse.app"
+          lipo -archs "$APP/Contents/MacOS/LazyMouse"
+          codesign --verify --verbose "$APP"
+          defaults read "$APP/Contents/Info" CFBundleShortVersionString
