@@ -253,6 +253,50 @@ Umschaltung zwischen gerastertem und freilaufendem Scrollrad — die entfällt d
 der Laufzeit, und nach dem Beenden kann das Rad im zuletzt per Hand gewählten Zustand
 stehen.
 
+## Scrollverhalten
+
+Langsames Scrollen mit einem rastenden Rad ist die Schwachstelle von macOS. Gemessen mit der
+MX Master 3S im Rastermodus, hohe Auflösung aus:
+
+| Rasten kommen alle … | macOS bewegt je Raste |
+|---|---:|
+| 250 ms oder mehr | **1 Punkt** |
+| 120 ms | 6 Punkte |
+| 83 ms | 7 Punkte |
+
+Eine langsam gedrehte Raste verschiebt die Seite um einen einzigen Punkt; langsames Scrollen
+kriecht, und der Weg je Raste springt mit jeder kleinen Tempoänderung. Dazu meldet das Rad ab
+und zu eine Raste gegen die Laufrichtung — bleibt es zwischen zwei Rasten stehen, zieht die
+magnetische Rastung es zurück. Aufgezeichnet wurde ein solcher Schritt unter etwa 300. macOS
+beschleunigt ihn wie jeden anderen, deshalb springt das Fenster kurz zurück. Das Gerät bietet
+keine Entprellung des Drehgebers, und die hohe Auflösung würde es verschlimmern.
+
+Die App formt die Scroll-Ereignisse rastender Räder deshalb um (`ScrollFilter.swift`):
+
+- **Rückpraller werden verworfen.** Eine einzelne Raste gegen die Richtung, die innerhalb von
+  200 ms nach der vorigen kommt, fällt weg. Eine zweite in die neue Richtung gilt als echte
+  Umkehr, ebenso eine schnelle Umkehr mit mehreren Zeilen — der erste Entwurf hatte auch
+  solche geschluckt.
+- **Jede Raste bewegt mindestens eine Zeile.** Darüber wächst der Weg mit dem Tempo, und der
+  Regler *Beschleunigung* skaliert alles jenseits der ersten Zeile, macOS' eigene
+  Beschleunigung eingeschlossen. Das schnelle Scrollen macOS zu überlassen, machte den Regler
+  kaum spürbar: Ein Wisch über das Rad ist eine Folge von Rasten unter 50 ms Abstand, und dort
+  übertrifft macOS' Wert jede eigene Kurve bei Weitem. Mit der endgültigen Fassung gemessen,
+  für eine Seite: etwa 8 Wische bei *Sanft*, 3 bis 4 bei *Kräftig*.
+- **Die Bewegung wird geglättet.** Eine Zeile in einem Sprung wirkt sichtbar stufig. Mit
+  *Bewegung glätten* wird der Weg jeder Raste als kleine Pixelschritte im 120-Hz-Takt mit
+  abklingendem Tempo ausgespielt. Der Takt läuft nur, solange noch Weg offen ist.
+
+Bearbeitet werden nur nicht-kontinuierliche Ereignisse; Trackpads und die Magic Mouse bleiben
+unberührt, ebenso die eigenen Pixel-Ereignisse des Filters. Das Daumenrad läuft unverändert
+durch. Andere Mäuse mit Rad werden mit umgeformt — ein Ereignis verrät nicht, von welchem
+Gerät es stammt.
+
+Ereignisse zu verändern verlangt zusätzlich zur Eingabeüberwachung die Berechtigung
+**Bedienungshilfen**. Die App fragt nicht beim Start danach; fehlt sie, bietet das
+Einstellungsfenster *Freigeben* an, und der Filter übernimmt binnen drei Sekunden nach der
+Freigabe, ohne Neustart. Ohne sie scrollt alles genau so, wie macOS es macht.
+
 ## Voraussetzung: Eingabeüberwachung
 
 Das Tool matcht HID-Geräte nur über die Vendor-ID (siehe unten, warum das nötig ist).

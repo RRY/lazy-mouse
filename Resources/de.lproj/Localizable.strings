@@ -70,3 +70,14 @@
 "button.0x00C4" = "Taste am Scrollrad";
 "button.0x00D7" = "Virtuelle Gestentaste";
 "button.unknown" = "Taste 0x%04X";
+
+/* Scroll behaviour */
+"section.scrolling" = "Scrollverhalten";
+"label.acceleration" = "Beschleunigung";
+"label.gentle" = "Sanft";
+"label.strong" = "Kräftig";
+"label.smoothing" = "Bewegung glätten";
+"hint.acceleration" = "Wie stark der Weg je Raste wächst, wenn du schneller drehst. Langsam bewegt jede Raste mindestens eine Zeile, und ein einzelner Rückprall des Rades wird verworfen.";
+"hint.smoothing" = "Verteilt den Weg jeder Raste auf viele kleine Schritte, statt ihn in einem Sprung zu übergeben.";
+"problem.accessibility" = "Dafür braucht die App die Berechtigung Bedienungshilfen.";
+"action.grant" = "Freigeben";

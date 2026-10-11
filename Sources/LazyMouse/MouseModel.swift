@@ -106,6 +106,48 @@ final class MouseModel: ObservableObject {
         launchAtLogin = LoginItem.isEnabled
     }
 
+    /// Scroll behaviour: how strongly the distance per detent grows with speed, and whether
+    /// it is played out smoothly. Both take effect at once — the filter reads them per detent.
+    @Published var scrollGain: Double {
+        didSet {
+            defaults.set(scrollGain, forKey: Keys.scrollGain)
+            scrollFilter.settings.strength = scrollGain
+        }
+    }
+    @Published var scrollSmoothing: Bool {
+        didSet {
+            defaults.set(scrollSmoothing, forKey: Keys.scrollSmoothing)
+            scrollFilter.settings.smoothing = scrollSmoothing
+        }
+    }
+    /// False while the Accessibility permission is missing; the settings window says so.
+    @Published var scrollFilterActive = false
+
+    func requestAccessibility() {
+        ScrollFilter.requestPermission()
+        startScrollFilter()
+    }
+
+    /// Starts the filter, or waits for the permission. macOS reports the grant without a
+    /// restart, so the filter takes over as soon as it arrives. Deliberately no prompt at
+    /// launch: the permission is only asked for when someone wants it.
+    private func startScrollFilter() {
+        if scrollFilter.start() {
+            scrollFilterActive = true
+            permissionPollTimer?.invalidate()
+            permissionPollTimer = nil
+            return
+        }
+        scrollFilterActive = false
+        guard permissionPollTimer == nil else { return }
+        permissionPollTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, ScrollFilter.isPermitted else { return }
+                self.startScrollFilter()
+            }
+        }
+    }
+
     var cycleSteps: [Int] {
         let parsed = cycleStepsRaw.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
         return parsed.count >= 2 ? parsed : [1000, 1600, 2400]
@@ -115,6 +157,8 @@ final class MouseModel: ObservableObject {
         static let cycleEnabled = "cycleEnabled"
         static let cycleButtonCID = "cycleButtonCID"
         static let cycleSteps = "cycleSteps"
+        static let scrollGain = "scrollGain"
+        static let scrollSmoothing = "scrollSmoothing"
         // Wanted device values. The mouse loses them when switched off, so the app holds them
         // and writes them back on every connection.
         static let desiredDPI = "desiredDPI"
@@ -149,6 +193,8 @@ final class MouseModel: ObservableObject {
 
     private let defaults = UserDefaults.standard
     private let worker = HIDPPWorker()
+    private let scrollFilter = ScrollFilter()
+    private var permissionPollTimer: Timer?
     private var stepIndex = 0
     private var refreshTimer: Timer?
     /// Runs only while there is no usable connection.
@@ -210,6 +256,8 @@ final class MouseModel: ObservableObject {
         let storedCID = defaults.integer(forKey: Keys.cycleButtonCID)
         cycleButtonCID = storedCID == 0 ? 0x00C3 : storedCID
         cycleStepsRaw = defaults.string(forKey: Keys.cycleSteps) ?? "1000,1600,2400"
+        scrollGain = defaults.object(forKey: Keys.scrollGain) as? Double ?? 3.0
+        scrollSmoothing = defaults.object(forKey: Keys.scrollSmoothing) as? Bool ?? true
 
         worker.onNotification = { [weak self] body in
             Task { @MainActor in self?.handleNotification(body) }
@@ -220,6 +268,9 @@ final class MouseModel: ObservableObject {
         connect()
         // After a restart the diversion is gone from the device — set it again.
         if cycleEnabled { applyCycleState() }
+
+        scrollFilter.settings = .init(strength: scrollGain, smoothing: scrollSmoothing)
+        startScrollFilter()
     }
 
     func connect() {

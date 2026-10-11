@@ -165,6 +165,32 @@ struct SettingsView: View {
 
             }
             .disabled(!model.connected)
+
+            // Not disabled while offline: this acts on the scroll events macOS delivers, not on
+            // the device, and can be set up before the mouse is there.
+            Section(LocalizedStringKey("section.scrolling")) {
+                Slider(value: $model.scrollGain, in: 0...ScrollFilter.maximumStrength) {
+                    Text(LocalizedStringKey("label.acceleration"))
+                } minimumValueLabel: {
+                    Text(LocalizedStringKey("label.gentle"))
+                } maximumValueLabel: {
+                    Text(LocalizedStringKey("label.strong"))
+                }
+                .help(LocalizedStringKey("hint.acceleration"))
+
+                Toggle(LocalizedStringKey("label.smoothing"), isOn: $model.scrollSmoothing)
+                    .help(LocalizedStringKey("hint.smoothing"))
+
+                if !model.scrollFilterActive {
+                    HStack(spacing: 6) {
+                        Text(LocalizedStringKey("problem.accessibility"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button(LocalizedStringKey("action.grant")) { model.requestAccessibility() }
+                            .buttonStyle(.link)
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .frame(width: 420)

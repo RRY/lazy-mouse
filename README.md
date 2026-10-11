@@ -258,6 +258,48 @@ wheel: `mxctl dpi-cycle --button 00C4`. Its native function is toggling between 
 and a free-spinning wheel, so that is what you give up while it runs — and afterwards the
 wheel may sit in whichever state was last selected by hand.
 
+## Scroll behaviour
+
+Slow scrolling with a detented wheel is where macOS is weakest. Measured with the MX Master
+3S in ratchet mode, high resolution off:
+
+| Detents arrive every … | macOS moves per detent |
+|---|---:|
+| 250 ms or more | **1 point** |
+| 120 ms | 6 points |
+| 83 ms | 7 points |
+
+A slowly turned detent moves the page by a single point, so slow scrolling crawls, and the
+distance per detent jumps with every small change in pace. On top of that the wheel now and
+then reports one detent against the direction of travel — when it stops between two detents,
+the magnetic ratchet pulls it back. One such step in about 300 was recorded. macOS accelerates
+it like any other, which is why the window briefly jumps back. The device offers no way to
+debounce the encoder, and high resolution would make it worse.
+
+The app therefore reshapes scroll events from detented wheels (`ScrollFilter.swift`):
+
+- **Bounces are dropped.** A single detent against the current direction within 200 ms of the
+  previous one is discarded. A second one in the new direction counts as a real reversal, and
+  so does a fast reversal carrying several lines — the first draft also swallowed those.
+- **Every detent moves at least one line.** Above that, the distance grows with speed, and the
+  *Acceleration* slider scales everything beyond the first line, macOS' own acceleration
+  included. Leaving fast scrolling to macOS made the slider next to imperceptible: a swipe
+  across the wheel is a burst of detents under 50 ms apart, where macOS' value dwarfs any
+  curve of our own. Measured with the final version for one page: about 8 swipes at *Gentle*,
+  3 to 4 at *Strong*.
+- **Movement is smoothed.** One line arriving in a single jump is visibly steppy. With
+  *Smooth movement* on, the distance of each detent is played out as small pixel steps at
+  120 Hz with an ease-out. The frame timer runs only while there is distance left.
+
+Only non-continuous events are touched, so trackpads and the Magic Mouse are unaffected, and
+so are the filter's own pixel events. The thumb wheel passes unchanged. Other wheel mice are
+reshaped too — an event does not say which device it came from.
+
+Changing events needs the **Accessibility** permission in addition to Input Monitoring. The
+app does not ask for it at launch; the settings window offers *Grant* when it is missing, and
+the filter takes over within three seconds of the grant, without a restart. Without it,
+scrolling stays exactly as macOS makes it.
+
 ## Requirement: Input Monitoring
 
 The tool matches HID devices by vendor ID alone (see below for why that is necessary). macOS

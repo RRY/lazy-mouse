@@ -70,3 +70,14 @@
 "button.0x00C4" = "Button at the wheel";
 "button.0x00D7" = "Virtual gesture button";
 "button.unknown" = "Button 0x%04X";
+
+/* Scroll behaviour */
+"section.scrolling" = "Scrolling";
+"label.acceleration" = "Acceleration";
+"label.gentle" = "Gentle";
+"label.strong" = "Strong";
+"label.smoothing" = "Smooth movement";
+"hint.acceleration" = "How much the distance per detent grows when you turn faster. Slowly, every detent moves at least one line, and a single bounce of the wheel is discarded.";
+"hint.smoothing" = "Spreads the distance of each detent over many small steps instead of handing it over in one jump.";
+"problem.accessibility" = "This needs the Accessibility permission.";
+"action.grant" = "Grant";
