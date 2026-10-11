@@ -76,6 +76,23 @@ struct SettingsView: View {
             .onChange(of: model.friendlyName) { _, new in editedName = new }
 
 
+            Section(LocalizedStringKey("section.start")) {
+                Toggle(LocalizedStringKey("label.launchAtLogin"), isOn: Binding(
+                    get: { model.launchAtLogin },
+                    set: { model.setLaunchAtLogin($0) }
+                ))
+                .help(LocalizedStringKey("hint.launchAtLogin"))
+                if let problem = model.launchAtLoginProblem {
+                    HStack(spacing: 6) {
+                        Text(problem)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button(LocalizedStringKey("action.open")) { LoginItem.openLoginItemsSettings() }
+                            .buttonStyle(.link)
+                    }
+                }
+            }
+
             Section(LocalizedStringKey("section.dpiCycle")) {
                 // Toggle and button selection in one: the "Disabled" entry replaces the
                 // former on/off switch, which did nothing without a button chosen anyway.
@@ -118,23 +135,6 @@ struct SettingsView: View {
             // Everything in here touches the mouse and would be without effect when offline.
             .disabled(!model.connected)
 
-            Section(LocalizedStringKey("section.start")) {
-                Toggle(LocalizedStringKey("label.launchAtLogin"), isOn: Binding(
-                    get: { model.launchAtLogin },
-                    set: { model.setLaunchAtLogin($0) }
-                ))
-                .help(LocalizedStringKey("hint.launchAtLogin"))
-                if let problem = model.launchAtLoginProblem {
-                    HStack(spacing: 6) {
-                        Text(problem)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Button(LocalizedStringKey("action.open")) { LoginItem.openLoginItemsSettings() }
-                            .buttonStyle(.link)
-                    }
-                }
-            }
-
             Section(LocalizedStringKey("section.wheel")) {
                 Picker(LocalizedStringKey("label.mode"), selection: Binding(
                     get: { model.scrollMode ?? .ratchet },
@@ -169,6 +169,10 @@ struct SettingsView: View {
             // Not disabled while offline: this acts on the scroll events macOS delivers, not on
             // the device, and can be set up before the mouse is there.
             Section(LocalizedStringKey("section.scrolling")) {
+                Toggle(LocalizedStringKey("label.scrollFilter"), isOn: $model.scrollFilterEnabled)
+                    .help(LocalizedStringKey("hint.scrollFilter"))
+
+                Group {
                 Slider(value: $model.scrollGain, in: 0...ScrollFilter.maximumStrength) {
                     Text(LocalizedStringKey("label.acceleration"))
                 } minimumValueLabel: {
@@ -180,8 +184,11 @@ struct SettingsView: View {
 
                 Toggle(LocalizedStringKey("label.smoothing"), isOn: $model.scrollSmoothing)
                     .help(LocalizedStringKey("hint.smoothing"))
+                }
+                .disabled(!model.scrollFilterEnabled)
 
-                if !model.scrollFilterActive {
+                // A missing permission only matters while the filter is wanted.
+                if model.scrollFilterEnabled && !model.scrollFilterActive {
                     HStack(spacing: 6) {
                         Text(LocalizedStringKey("problem.accessibility"))
                             .font(.caption)

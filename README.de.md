@@ -46,7 +46,7 @@ open "/Applications/Lazy Mouse.app"
 
 | Menüleiste | Einstellungen |
 |---|---|
-| <img src="docs/screenshots/menu.png" alt="Symbol in der Menüleiste mit Batteriestand, Menü geöffnet" width="360"> | <img src="docs/screenshots/settings.png" alt="Einstellungsfenster mit den Abschnitten Gerät, DPI-Umschaltung, Start und Scrollrad" width="300"> |
+| <img src="docs/screenshots/menu.png" alt="Symbol in der Menüleiste mit Batteriestand, Menü geöffnet" width="360"> | <img src="docs/screenshots/settings.png" alt="Einstellungsfenster mit den Abschnitten Gerät, Start, DPI-Umschaltung, Scrollrad und Scrollverhalten" width="300"> |
 
 Das Symbol zeigt den Batteriestand direkt in der Menüleiste. Das Menü bietet DPI-Stufen,
 den Scrollrad-Modus, den Schalter für die DPI-Taste und den Autostart. Das
@@ -296,6 +296,10 @@ Ereignisse zu verändern verlangt zusätzlich zur Eingabeüberwachung die Berech
 **Bedienungshilfen**. Die App fragt nicht beim Start danach; fehlt sie, bietet das
 Einstellungsfenster *Freigeben* an, und der Filter übernimmt binnen drei Sekunden nach der
 Freigabe, ohne Neustart. Ohne sie scrollt alles genau so, wie macOS es macht.
+
+*Scrollverhalten anpassen* schaltet den ganzen Filter ab und an. Ohne diesen Schalter führte
+der Weg zurück zu macOS' eigenem Verhalten nur über das Entziehen der Berechtigung. Solange er
+aus ist, fragt die App weder nach der Berechtigung noch prüft sie sie.
 
 ## Voraussetzung: Eingabeüberwachung
 

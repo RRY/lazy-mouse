@@ -54,7 +54,7 @@ open "/Applications/Lazy Mouse.app"
 
 | Menu bar | Settings |
 |---|---|
-| <img src="docs/screenshots/menu.png" alt="Menu bar icon showing the battery level, with the menu open" width="360"> | <img src="docs/screenshots/settings.png" alt="Settings window with device, DPI button, launch at login and scroll wheel sections" width="300"> |
+| <img src="docs/screenshots/menu.png" alt="Menu bar icon showing the battery level, with the menu open" width="360"> | <img src="docs/screenshots/settings.png" alt="Settings window with device, launch at login, DPI button, scroll wheel and scrolling sections" width="300"> |
 
 *(The interface follows the system language; shown here in German.)*
 
@@ -299,6 +299,10 @@ Changing events needs the **Accessibility** permission in addition to Input Moni
 app does not ask for it at launch; the settings window offers *Grant* when it is missing, and
 the filter takes over within three seconds of the grant, without a restart. Without it,
 scrolling stays exactly as macOS makes it.
+
+*Adjust scrolling* switches the whole filter off and on. Without that switch the only way
+back to macOS' own behaviour was to revoke the permission. While it is off, the app neither
+asks for the permission nor checks for it.
 
 ## Requirement: Input Monitoring
 

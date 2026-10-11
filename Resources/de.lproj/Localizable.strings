@@ -72,6 +72,8 @@
 "button.unknown" = "Taste 0x%04X";
 
 /* Scroll behaviour */
+"label.scrollFilter" = "Scrollverhalten anpassen";
+"hint.scrollFilter" = "Aus: Das Mausrad scrollt genau so, wie macOS es von sich aus macht.";
 "section.scrolling" = "Scrollverhalten";
 "label.acceleration" = "Beschleunigung";
 "label.gentle" = "Sanft";

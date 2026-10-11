@@ -72,6 +72,8 @@
 "button.unknown" = "Button 0x%04X";
 
 /* Scroll behaviour */
+"label.scrollFilter" = "Adjust scrolling";
+"hint.scrollFilter" = "Off: the wheel scrolls exactly as macOS makes it on its own.";
 "section.scrolling" = "Scrolling";
 "label.acceleration" = "Acceleration";
 "label.gentle" = "Gentle";

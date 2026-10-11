@@ -106,6 +106,15 @@ final class MouseModel: ObservableObject {
         launchAtLogin = LoginItem.isEnabled
     }
 
+    /// Master switch for the scroll filter. Off means scrolling exactly as macOS makes it —
+    /// without it the only way back was to revoke the Accessibility permission.
+    @Published var scrollFilterEnabled: Bool {
+        didSet {
+            defaults.set(scrollFilterEnabled, forKey: Keys.scrollFilterEnabled)
+            if scrollFilterEnabled { startScrollFilter() } else { stopScrollFilter() }
+        }
+    }
+
     /// Scroll behaviour: how strongly the distance per detent grows with speed, and whether
     /// it is played out smoothly. Both take effect at once — the filter reads them per detent.
     @Published var scrollGain: Double {
@@ -126,6 +135,13 @@ final class MouseModel: ObservableObject {
     func requestAccessibility() {
         ScrollFilter.requestPermission()
         startScrollFilter()
+    }
+
+    private func stopScrollFilter() {
+        scrollFilter.stop()
+        permissionPollTimer?.invalidate()
+        permissionPollTimer = nil
+        scrollFilterActive = false
     }
 
     /// Starts the filter, or waits for the permission. macOS reports the grant without a
@@ -157,6 +173,7 @@ final class MouseModel: ObservableObject {
         static let cycleEnabled = "cycleEnabled"
         static let cycleButtonCID = "cycleButtonCID"
         static let cycleSteps = "cycleSteps"
+        static let scrollFilterEnabled = "scrollFilterEnabled"
         static let scrollGain = "scrollGain"
         static let scrollSmoothing = "scrollSmoothing"
         // Wanted device values. The mouse loses them when switched off, so the app holds them
@@ -256,6 +273,7 @@ final class MouseModel: ObservableObject {
         let storedCID = defaults.integer(forKey: Keys.cycleButtonCID)
         cycleButtonCID = storedCID == 0 ? 0x00C3 : storedCID
         cycleStepsRaw = defaults.string(forKey: Keys.cycleSteps) ?? "1000,1600,2400"
+        scrollFilterEnabled = defaults.object(forKey: Keys.scrollFilterEnabled) as? Bool ?? true
         scrollGain = defaults.object(forKey: Keys.scrollGain) as? Double ?? 3.0
         scrollSmoothing = defaults.object(forKey: Keys.scrollSmoothing) as? Bool ?? true
 
@@ -270,7 +288,7 @@ final class MouseModel: ObservableObject {
         if cycleEnabled { applyCycleState() }
 
         scrollFilter.settings = .init(strength: scrollGain, smoothing: scrollSmoothing)
-        startScrollFilter()
+        if scrollFilterEnabled { startScrollFilter() }
     }
 
     func connect() {
