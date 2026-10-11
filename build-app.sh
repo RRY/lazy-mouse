@@ -80,6 +80,9 @@ if [ -n "$DEVELOPER_ID" ]; then
     #     --team-id YOUR-TEAM-ID --password APP-SPECIFIC-PASSWORD
     if [ -n "${NOTARIZE_PROFILE:-}" ]; then
         ZIP="$(dirname "$APP")/LazyMouse-notarize.zip"
+        # Removed on every exit: a rejected submission ends the script through `set -e`,
+        # which used to leave the archive lying in /Applications.
+        trap 'rm -f "$ZIP"' EXIT
         ditto -c -k --keepParent "$APP" "$ZIP"
         xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARIZE_PROFILE" --wait
         # Staples the ticket to the app so it counts as notarized offline as well.
