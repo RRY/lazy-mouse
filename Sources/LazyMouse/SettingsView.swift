@@ -9,11 +9,10 @@ struct SettingsView: View {
 
     /// Shown at the foot of the window so a bug report can name the exact version without a
     /// separate About panel, which a pure menu bar app has no natural place for anyway.
+    /// Only the version: the build number in brackets read as noise next to it.
     private var appVersion: String {
-        let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "?"
-        let build = info?["CFBundleVersion"] as? String ?? "?"
-        return String(format: String(localized: "value.version"), short, build)
+        let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        return String(format: String(localized: "value.version"), short)
     }
 
     var body: some View {
